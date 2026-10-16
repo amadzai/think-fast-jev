@@ -1,2 +1,7 @@
 # thinking-fast-kev
-System 1 vs System 2: benchmarking Kev’s single-pass decisions against an LLM in a RAG pipeline.
+
+Benchmarks [Kev](https://github.com/jaredpalmer/kev) decision models against a generative LLM as the decision layer in a RAG pipeline. Compares latency, accuracy, and calibration on routing, guardrail, and relevance decisions.
+
+**Stack:** Python, LangGraph
+
+**Status:** WIP
