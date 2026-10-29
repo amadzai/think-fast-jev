@@ -28,6 +28,14 @@ _Avoid_: Label, class, choice
 The decision node that sends a user question to the one data tool that can answer it.
 _Avoid_: Intent classifier, dispatcher
 
+**Guardrail**:
+The decision node that decides if the assistant may answer a user question.
+_Avoid_: Filter, moderation, safety check
+
+**Coin sector**:
+The decision node that decides which sectors a coin belongs to.
+_Avoid_: Category tagging, classification
+
 **Unsupported**:
 The router option for a question that no data tool can answer.
 _Avoid_: Other, fallback, none
