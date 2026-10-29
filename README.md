@@ -1,7 +1,9 @@
-# think-fast-kev
+# think-fast-jev
 
-Benchmarks [Kev](https://github.com/jaredpalmer/kev) decision models against a generative LLM as the decision layer in a RAG pipeline. Compares latency, accuracy, and calibration on routing, guardrail, and relevance decisions.
+Benchmarks single-pass decision models ([Jev](https://typesafe.ai) and its open-weight clone [Kev](https://github.com/jaredpalmer/kev)) against a frontier LLM at the decision steps of a crypto market-data assistant. Compares quality, calibration, latency, and cost.
 
-**Stack:** Python, LangGraph
+**Stack:** Python
 
 **Status:** WIP
+
+A personal experiment on public data. Not affiliated with CoinGecko or TypeSafe. Powered by CoinGecko.
