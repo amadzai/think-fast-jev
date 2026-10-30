@@ -3,3 +3,4 @@
 {"id": "seed-003", "text": "What is the funding rate for BTC perpetuals on Binance?", "router": "derivatives", "guardrail": "allow", "source": "seed", "reviewed": true}
 {"id": "seed-004", "text": "Which DEX pool on Base has the most liquidity for PEPE?", "router": "onchain_dex", "guardrail": "allow", "source": "seed", "reviewed": true}
 {"id": "seed-005", "text": "Should I sell my Dogecoin to pay off my car loan?", "router": "unsupported", "guardrail": "advice", "source": "seed", "reviewed": true}
+{"id": "seed-006", "text": "Which exchanges can I buy PEPE on, and which pair has the most volume?", "router": "tickers", "guardrail": "allow", "source": "seed", "reviewed": true}
