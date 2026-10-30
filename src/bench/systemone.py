@@ -36,6 +36,10 @@ class SystemOneClient:
             transport=transport,
         )
 
+    @property
+    def model(self) -> str:
+        return self._config.model
+
     def __enter__(self) -> Self:
         return self
 

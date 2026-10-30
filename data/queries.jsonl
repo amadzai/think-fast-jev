@@ -1,0 +1,5 @@
+{"id": "seed-001", "text": "What is the price of Ethereum in USD right now?", "router": "price", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-002", "text": "Show me how Solana's price moved over the last 30 days.", "router": "market_chart", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-003", "text": "What is the funding rate for BTC perpetuals on Binance?", "router": "derivatives", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-004", "text": "Which DEX pool on Base has the most liquidity for PEPE?", "router": "onchain_dex", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-005", "text": "Should I sell my Dogecoin to pay off my car loan?", "router": "unsupported", "guardrail": "advice", "source": "seed", "reviewed": true}
