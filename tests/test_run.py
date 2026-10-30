@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import httpx
+import pytest
 
 from bench.config import SystemOneArmConfig
 from bench.nodes import ROUTER
@@ -58,3 +59,22 @@ def test_router_run_writes_one_record_per_reviewed_query_and_rerun_skips_them(tm
     assert first["e2e_ms"] >= 0
     assert (first["input_tokens"], first["output_tokens"]) == (412, 0)
     assert first["error"] is None
+
+
+def test_retried_call_counts_every_attempt_toward_warmup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Arrange: the first 2 calls fail, so q1 succeeds on the 3rd call and q2 is the 4th call.
+    monkeypatch.setattr("bench.run.BACKOFF_S", 0.0)
+    responses = iter([httpx.Response(500, text="busy"), httpx.Response(500, text="busy")])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return next(responses, httpx.Response(200, json=RECORDED))
+
+    out = tmp_path / "router.jsonl"
+
+    # Act
+    with SystemOneClient(JEV, transport=httpx.MockTransport(handler)) as client:
+        run_node(ROUTER, QUERIES[:2], {"jev": client}, out)
+
+    # Assert
+    records = [json.loads(line) for line in out.read_text().splitlines()]
+    assert [(r["item_id"], r["error"], r["warmup"]) for r in records] == [("q1", None, True), ("q2", None, False)]

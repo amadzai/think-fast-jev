@@ -9,6 +9,7 @@ import httpx
 from bench.config import SystemOneArmConfig
 
 TIMEOUT_S = 30.0
+ERROR_BODY_CHARS = 300
 
 
 class SystemOneError(Exception):
@@ -37,8 +38,8 @@ class SystemOneClient:
         )
 
     @property
-    def model(self) -> str:
-        return self._config.model
+    def config(self) -> SystemOneArmConfig:
+        return self._config
 
     def __enter__(self) -> Self:
         return self
@@ -56,7 +57,7 @@ class SystemOneClient:
             data = response.json()
             answers = data["answers"]
         except (ValueError, KeyError) as error:
-            raise SystemOneError(f"unexpected response: {response.text[:200]}") from error
+            raise SystemOneError(f"unexpected response: {response.text[:ERROR_BODY_CHARS]}") from error
         missing = set(questions) - set(answers)
         if missing:
             raise SystemOneError(f"response has no answer for {sorted(missing)}")
@@ -70,3 +71,10 @@ class SystemOneClient:
             input_tokens=usage.get("input_tokens"),
             output_tokens=usage.get("output_tokens"),
         )
+
+
+def describe_error(error: Exception) -> str:
+    """Return a short message for a failed call."""
+    if isinstance(error, httpx.HTTPStatusError):
+        return f"HTTP {error.response.status_code}: {error.response.text[:ERROR_BODY_CHARS]}"
+    return f"{type(error).__name__}: {error}"
