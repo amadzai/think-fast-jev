@@ -4,4 +4,4 @@ __pycache__/
 .claude/settings.local.json
 CLAUDE.md
 .scratch/
-.ruff_cache
+.ruff_cache.envrc
