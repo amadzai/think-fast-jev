@@ -1,7 +1,10 @@
-"""Configuration from environment variables, with `.env` in the working directory as the default source."""
+"""This module reads the settings from environment variables. The CLI loads them from `.env` first."""
 
 import os
 from dataclasses import dataclass
+
+DEFAULT_JEV_BASE_URL = "https://api.typesafe.ai"
+DEFAULT_JEV_MODEL = "jev-latest"
 
 
 class ConfigError(Exception):
@@ -24,7 +27,7 @@ def jev_config() -> SystemOneArmConfig:
         raise ConfigError("TYPESAFE_API_KEY is not set. Add it to .env (get a key at console.typesafe.ai).")
     return SystemOneArmConfig(
         name="jev",
-        base_url=os.environ.get("JEV_BASE_URL", "https://api.typesafe.ai"),
+        base_url=os.environ.get("JEV_BASE_URL", DEFAULT_JEV_BASE_URL),
         api_key=api_key,
-        model=os.environ.get("JEV_MODEL", "jev-latest"),
+        model=os.environ.get("JEV_MODEL", DEFAULT_JEV_MODEL),
     )
