@@ -58,6 +58,10 @@ class ArmSettings:
     model: str
     # The model versions that the responses of this run report.
     versions: tuple[str, ...]
+    # The GET /v1/models response before and after the run, or {"error": ...}. For Kev it has the run, the LoRA,
+    # the temperature and the prefix cache counters. The counters count from server start, so compare the two.
+    models_before: dict[str, Any]
+    models_after: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -74,8 +78,10 @@ class RunSummary:
 def run_node(node: Node, queries: list[Query], clients: dict[str, SystemOneClient], out: Path) -> RunSummary:
     """Call the arms for one reviewed query, then go to the next query. Skip decisions that have a success record in `out`."""
     started = datetime.now(UTC).isoformat()
+    models_before = {arm: _models(client) for arm, client in clients.items()}
     done = _finished_keys(out)
-    todo = [(q, arm) for q in queries if q.reviewed for arm in clients]
+    reviewed = [q for q in queries if q.reviewed]
+    todo = [(q, arm) for i, q in enumerate(reviewed) for arm in _rotated(list(clients), i)]
     pending = [(q, arm) for q, arm in todo if (node.name, q.id, arm, FIRST_REPEAT) not in done]
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("a") as file:
@@ -92,6 +98,8 @@ def run_node(node: Node, queries: list[Query], clients: dict[str, SystemOneClien
                 base_url=client.config.base_url,
                 model=client.config.model,
                 versions=tuple(sorted({d.model_version for d in decisions if d.arm == arm and d.model_version})),
+                models_before=models_before[arm],
+                models_after=_models(client),
             )
             for arm, client in clients.items()
         },
@@ -109,6 +117,12 @@ def append_run_metadata(out: Path, summary: RunSummary, queries: Path) -> None:
     path.write_text(json.dumps({"runs": [*runs, entry]}, indent=2) + "\n")
 
 
+def _rotated(arms: list[str], index: int) -> list[str]:
+    # The arm order rotates from query to query, so that no arm always gets the call right after the same other arm.
+    shift = index % len(arms)
+    return arms[shift:] + arms[:shift]
+
+
 def _decisions(node: Node, pending: list[tuple[Query, str]], clients: dict[str, SystemOneClient]) -> Iterator[Decision]:
     # Warm-up counts HTTP calls per arm in this process, retries included. A resumed run starts cold again.
     calls = dict.fromkeys(clients, 0)
@@ -116,6 +130,14 @@ def _decisions(node: Node, pending: list[tuple[Query, str]], clients: dict[str, 
         decision, attempts = _decide(node, query, arm, clients[arm], calls[arm])
         calls = calls | {arm: calls[arm] + attempts}
         yield decision
+
+
+def _models(client: SystemOneClient) -> dict[str, Any]:
+    # The response is for the metadata only, so a failed call does not stop the run. The metadata keeps the error.
+    try:
+        return client.models()
+    except (httpx.HTTPError, SystemOneError) as error:
+        return {"error": describe_error(error)}
 
 
 def _write(file: TextIO, decision: Decision) -> Decision:

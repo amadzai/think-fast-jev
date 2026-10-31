@@ -9,6 +9,8 @@ import httpx
 from bench.config import SystemOneArmConfig
 
 TIMEOUT_S = 30.0
+# A short connect timeout gives a fast, clear error when the Kev PC is off or its IP address changed.
+CONNECT_TIMEOUT_S = 5.0
 ERROR_BODY_CHARS = 300
 
 
@@ -33,7 +35,7 @@ class SystemOneClient:
         self._http = httpx.Client(
             base_url=config.base_url,
             headers={"Authorization": f"Bearer {config.api_key}"},
-            timeout=TIMEOUT_S,
+            timeout=httpx.Timeout(TIMEOUT_S, connect=CONNECT_TIMEOUT_S),
             transport=transport,
         )
 
@@ -46,6 +48,18 @@ class SystemOneClient:
 
     def __exit__(self, *exc_info: object) -> None:
         self._http.close()
+
+    def models(self) -> dict[str, Any]:
+        """Return the GET /v1/models response. Kev reports its server settings here."""
+        response = self._http.get("/v1/models")
+        response.raise_for_status()
+        try:
+            data = response.json()
+        except ValueError as error:
+            raise SystemOneError(f"unexpected models response: {response.text[:ERROR_BODY_CHARS]}") from error
+        if not isinstance(data, dict):
+            raise SystemOneError(f"unexpected models response: {response.text[:ERROR_BODY_CHARS]}")
+        return data
 
     def decide(self, state: str, questions: dict[str, dict[str, Any]]) -> SystemOneResult:
         body = {"state": state, "model": self._config.model, "questions": questions}
