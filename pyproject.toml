@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Benchmark single-pass decision models against a frontier LLM at the decision steps of a crypto data assistant."
 requires-python = ">=3.12"
 dependencies = [
+    "anthropic>=2.3.0",
     "httpx>=0.28",
     "python-dotenv>=1.0",
     "typer>=0.15",

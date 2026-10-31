@@ -8,17 +8,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TextIO
 
-import httpx
-
+from bench.arm import CALL_ERRORS, ArmClient, argmax, describe_error
 from bench.nodes import Node
 from bench.queries import Query
-from bench.systemone import ERROR_BODY_CHARS, SystemOneClient, SystemOneError, describe_error
 
 WARMUP_CALLS = 3
 MAX_ATTEMPTS = 3
 BACKOFF_S = 1.0
-# Only Haiku runs more than one repeat. Jev and Kev have repeat 0 only.
-FIRST_REPEAT = 0
+# Repeat numbers start at 1. Jev and Kev have repeat 1 only, Haiku has repeats 1 to 3.
+FIRST_REPEAT = 1
 
 type DecisionKey = tuple[str, str, str, int]
 
@@ -45,6 +43,8 @@ class Decision:
     e2e_ms: float | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
+    # True when the client scaled the probabilities to sum 1 (Haiku). None for Jev and Kev.
+    normalised: bool | None = None
     error: str | None = None
 
     @property
@@ -56,9 +56,12 @@ class Decision:
 class ArmSettings:
     base_url: str
     model: str
+    repeats: int
+    # For example Haiku's thinking setting. Empty for Jev and Kev.
+    request_settings: dict[str, Any]
     # The model versions that the responses of this run report.
     versions: tuple[str, ...]
-    # The GET /v1/models response before and after the run, or {"error": ...}. For Kev it has the run, the LoRA,
+    # The server's model description before and after the run, or {"error": ...}. For Kev it has the run, the LoRA,
     # the temperature and the prefix cache counters. The counters count from server start, so compare the two.
     models_before: dict[str, Any]
     models_after: dict[str, Any]
@@ -75,14 +78,20 @@ class RunSummary:
     arms: dict[str, ArmSettings]
 
 
-def run_node(node: Node, queries: list[Query], clients: dict[str, SystemOneClient], out: Path) -> RunSummary:
+def run_node(node: Node, queries: list[Query], clients: dict[str, ArmClient], out: Path) -> RunSummary:
     """Call the arms for one reviewed query, then go to the next query. Skip decisions that have a success record in `out`."""
     started = datetime.now(UTC).isoformat()
     models_before = {arm: _models(client) for arm, client in clients.items()}
     done = _finished_keys(out)
     reviewed = [q for q in queries if q.reviewed]
-    todo = [(q, arm) for i, q in enumerate(reviewed) for arm in _rotated(list(clients), i)]
-    pending = [(q, arm) for q, arm in todo if (node.name, q.id, arm, FIRST_REPEAT) not in done]
+    # An arm's repeats stay together, so the arm order rotates by arm, not by call.
+    todo = [
+        (q, arm, repeat)
+        for i, q in enumerate(reviewed)
+        for arm in _rotated(list(clients), i)
+        for repeat in range(FIRST_REPEAT, FIRST_REPEAT + clients[arm].config.repeats)
+    ]
+    pending = [(q, arm, repeat) for q, arm, repeat in todo if (node.name, q.id, arm, repeat) not in done]
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("a") as file:
         decisions = [_write(file, decision) for decision in _decisions(node, pending, clients)]
@@ -97,6 +106,8 @@ def run_node(node: Node, queries: list[Query], clients: dict[str, SystemOneClien
             arm: ArmSettings(
                 base_url=client.config.base_url,
                 model=client.config.model,
+                repeats=client.config.repeats,
+                request_settings=client.request_settings,
                 versions=tuple(sorted({d.model_version for d in decisions if d.arm == arm and d.model_version})),
                 models_before=models_before[arm],
                 models_after=_models(client),
@@ -123,20 +134,20 @@ def _rotated(arms: list[str], index: int) -> list[str]:
     return arms[shift:] + arms[:shift]
 
 
-def _decisions(node: Node, pending: list[tuple[Query, str]], clients: dict[str, SystemOneClient]) -> Iterator[Decision]:
+def _decisions(node: Node, pending: list[tuple[Query, str, int]], clients: dict[str, ArmClient]) -> Iterator[Decision]:
     # Warm-up counts HTTP calls per arm in this process, retries included. A resumed run starts cold again.
     calls = dict.fromkeys(clients, 0)
-    for query, arm in pending:
-        decision, attempts = _decide(node, query, arm, clients[arm], calls[arm])
+    for query, arm, repeat in pending:
+        decision, attempts = _decide(node, query, arm, repeat, clients[arm], calls[arm])
         calls = calls | {arm: calls[arm] + attempts}
         yield decision
 
 
-def _models(client: SystemOneClient) -> dict[str, Any]:
+def _models(client: ArmClient) -> dict[str, Any]:
     # The response is for the metadata only, so a failed call does not stop the run. The metadata keeps the error.
     try:
         return client.models()
-    except (httpx.HTTPError, SystemOneError) as error:
+    except CALL_ERRORS as error:
         return {"error": describe_error(error)}
 
 
@@ -163,23 +174,24 @@ def _finished_keys(out: Path) -> set[DecisionKey]:
     return keys
 
 
-def _decide(node: Node, query: Query, arm: str, client: SystemOneClient, calls_before: int) -> tuple[Decision, int]:
+def _decide(
+    node: Node, query: Query, arm: str, repeat: int, client: ArmClient, calls_before: int
+) -> tuple[Decision, int]:
     """Return the decision and the number of HTTP calls it used."""
     base = Decision(
         arm=arm,
         model=client.config.model,
         node=node.name,
         item_id=query.id,
-        repeat=FIRST_REPEAT,
+        repeat=repeat,
         warmup=calls_before < WARMUP_CALLS,
         timestamp=datetime.now(UTC).isoformat(),
     )
     last_error = None
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
-            result = client.decide(query.text, node.system_one_questions())
-            probabilities = _probabilities(node, result.answers[node.question_id])
-        except (httpx.HTTPError, SystemOneError) as error:
+            answer = client.answer(node, query.text)
+        except CALL_ERRORS as error:
             last_error = describe_error(error)
             if attempt < MAX_ATTEMPTS:
                 time.sleep(BACKOFF_S * 2 ** (attempt - 1))
@@ -187,22 +199,14 @@ def _decide(node: Node, query: Query, arm: str, client: SystemOneClient, calls_b
         decision = replace(
             base,
             warmup=calls_before + attempt <= WARMUP_CALLS,
-            model_version=result.model,
-            # The same decision rule for every arm: the argmax of the probabilities.
-            selected=max(probabilities, key=probabilities.__getitem__),
-            probabilities=probabilities,
-            model_ms=result.model_ms,
-            e2e_ms=result.e2e_ms,
-            input_tokens=result.input_tokens,
-            output_tokens=result.output_tokens,
+            model_version=answer.model_version,
+            selected=argmax(answer.probabilities),
+            probabilities=answer.probabilities,
+            model_ms=answer.model_ms,
+            e2e_ms=answer.e2e_ms,
+            input_tokens=answer.input_tokens,
+            output_tokens=answer.output_tokens,
+            normalised=answer.normalised,
         )
         return decision, attempt
     return replace(base, error=last_error), MAX_ATTEMPTS
-
-
-def _probabilities(node: Node, answer: Any) -> dict[str, float]:
-    probabilities = answer.get("probabilities") if isinstance(answer, dict) else None
-    if not isinstance(probabilities, dict) or set(probabilities) != set(node.options):
-        raise SystemOneError(f"answer has no probability for each option: {str(answer)[:ERROR_BODY_CHARS]}")
-    # Keep the node's option order, not the order of the response.
-    return {name: float(probabilities[name]) for name in node.options}

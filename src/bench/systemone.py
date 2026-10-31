@@ -1,35 +1,21 @@
 """Jev and Kev use this client to call the System One API (POST /v1/systemone)."""
 
 import time
-from dataclasses import dataclass
 from typing import Any, Self
 
 import httpx
 
-from bench.config import SystemOneArmConfig
-
-TIMEOUT_S = 30.0
-# A short connect timeout gives a fast, clear error when the Kev PC is off or its IP address changed.
-CONNECT_TIMEOUT_S = 5.0
-ERROR_BODY_CHARS = 300
+from bench.arm import CONNECT_TIMEOUT_S, ERROR_BODY_CHARS, TIMEOUT_S, Answer, ArmResponseError, in_option_order
+from bench.config import ArmConfig
+from bench.nodes import Node
 
 
-class SystemOneError(Exception):
-    """The API sent a response that the client cannot read."""
-
-
-@dataclass(frozen=True)
-class SystemOneResult:
-    answers: dict[str, Any]
-    model: str
-    model_ms: float | None
-    e2e_ms: float
-    input_tokens: int | None
-    output_tokens: int | None
+class SystemOneError(ArmResponseError):
+    """The System One API sent a response that the client cannot read."""
 
 
 class SystemOneClient:
-    def __init__(self, config: SystemOneArmConfig, transport: httpx.BaseTransport | None = None) -> None:
+    def __init__(self, config: ArmConfig, transport: httpx.BaseTransport | None = None) -> None:
         self._config = config
         # One client per arm keeps the connection open between calls (keep-alive).
         self._http = httpx.Client(
@@ -40,8 +26,12 @@ class SystemOneClient:
         )
 
     @property
-    def config(self) -> SystemOneArmConfig:
+    def config(self) -> ArmConfig:
         return self._config
+
+    @property
+    def request_settings(self) -> dict[str, Any]:
+        return {}
 
     def __enter__(self) -> Self:
         return self
@@ -61,24 +51,21 @@ class SystemOneClient:
             raise SystemOneError(f"unexpected models response: {response.text[:ERROR_BODY_CHARS]}")
         return data
 
-    def decide(self, state: str, questions: dict[str, dict[str, Any]]) -> SystemOneResult:
-        body = {"state": state, "model": self._config.model, "questions": questions}
+    def answer(self, node: Node, state: str) -> Answer:
+        body = {"state": state, "model": self._config.model, "questions": node.system_one_questions()}
         start = time.perf_counter()
         response = self._http.post("/v1/systemone", json=body)
         e2e_ms = (time.perf_counter() - start) * 1000
         response.raise_for_status()
         try:
             data = response.json()
-            answers = data["answers"]
-        except (ValueError, KeyError) as error:
+            answer = data["answers"][node.question_id]
+        except (ValueError, KeyError, TypeError) as error:
             raise SystemOneError(f"unexpected response: {response.text[:ERROR_BODY_CHARS]}") from error
-        missing = set(questions) - set(answers)
-        if missing:
-            raise SystemOneError(f"response has no answer for {sorted(missing)}")
         usage = data.get("usage") or {}
-        return SystemOneResult(
-            answers=answers,
-            model=data.get("model", self._config.model),
+        return Answer(
+            probabilities=_probabilities(node, answer),
+            model_version=data.get("model", self._config.model),
             # Kev returns the model time. Hosted Jev does not.
             model_ms=data.get("latency_ms"),
             e2e_ms=e2e_ms,
@@ -87,8 +74,7 @@ class SystemOneClient:
         )
 
 
-def describe_error(error: Exception) -> str:
-    """Return a short message for a failed call."""
-    if isinstance(error, httpx.HTTPStatusError):
-        return f"HTTP {error.response.status_code}: {error.response.text[:ERROR_BODY_CHARS]}"
-    return f"{type(error).__name__}: {error}"
+def _probabilities(node: Node, answer: Any) -> dict[str, float]:
+    probabilities = answer.get("probabilities") if isinstance(answer, dict) else None
+    # Keep the node's option order, not the order of the response.
+    return {name: float(p) for name, p in in_option_order(node, probabilities, str(answer)).items()}

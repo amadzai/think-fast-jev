@@ -21,6 +21,23 @@ class Node:
             }
         }
 
+    def chat_system_prompt(self) -> str:
+        """Return the system prompt for a chat arm. It has the same instructions and options as the System One request."""
+        options = "\n".join(f"- {name}: {description}" for name, description in self.options.items())
+        return (
+            f"{self.instructions}\n\nOptions:\n{options}\n\n"
+            "Return a probability from 0 to 1 for each option. The probabilities sum to 1."
+        )
+
+    def probability_schema(self) -> dict[str, Any]:
+        """Return the structured output schema for a chat arm. It has one probability field per option."""
+        return {
+            "type": "object",
+            "properties": {name: {"type": "number"} for name in self.options},
+            "required": list(self.options),
+            "additionalProperties": False,
+        }
+
 
 ROUTER = Node(
     name="router",
