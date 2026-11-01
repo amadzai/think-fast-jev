@@ -17,8 +17,10 @@ MAX_ATTEMPTS = 3
 BACKOFF_S = 1.0
 # Repeat numbers start at 1. Jev and Kev have repeat 1 only, Haiku has repeats 1 to 3.
 FIRST_REPEAT = 1
-# The state of a keep-warm call. It differs from every query, so the recorded call gets no prefix cache hit from it.
+# The state of a keep-warm call. It differs from every query. Kev caches by state, so the recorded call gets no cache hit.
 KEEP_WARM_STATE = "Keep-warm call. Not recorded."
+# An error record with this prefix has no recorded call: the keep-warm call failed before it.
+KEEP_WARM_ERROR_PREFIX = "keep-warm call: "
 
 type DecisionKey = tuple[str, str, str, int]
 
@@ -59,7 +61,7 @@ class ArmSettings:
     base_url: str
     model: str
     repeats: int
-    # True: each recorded call came right after one unrecorded keep-warm call (Kev).
+    # True: one unrecorded keep-warm call comes right before each recorded call.
     keep_warm: bool
     # For example Haiku's thinking setting. Empty for Jev and Kev.
     request_settings: dict[str, Any]
@@ -67,6 +69,7 @@ class ArmSettings:
     versions: tuple[str, ...]
     # The server's model description before and after the run, or {"error": ...}. For Kev it has the run, the LoRA,
     # the temperature and the prefix cache counters. The counters count from server start, so compare the two.
+    # With keep_warm, the counters include the keep-warm calls.
     models_before: dict[str, Any]
     models_after: dict[str, Any]
 
@@ -182,8 +185,7 @@ def _finished_keys(out: Path) -> set[DecisionKey]:
 def _decide(
     node: Node, query: Query, arm: str, repeat: int, client: ArmClient, calls_before: int
 ) -> tuple[Decision, int]:
-    """Return the decision and the number of HTTP calls it used, keep-warm calls included."""
-    calls_per_attempt = 2 if client.config.keep_warm else 1
+    """Return the decision and the number of HTTP calls it sent, keep-warm calls included."""
     base = Decision(
         arm=arm,
         model=client.config.model,
@@ -193,20 +195,24 @@ def _decide(
         warmup=calls_before < WARMUP_CALLS,
         timestamp=datetime.now(UTC).isoformat(),
     )
+    calls = 0
     last_error = None
     for attempt in range(1, MAX_ATTEMPTS + 1):
+        prefix = ""
         try:
             if client.config.keep_warm:
+                calls, prefix = calls + 1, KEEP_WARM_ERROR_PREFIX
                 client.answer(node, KEEP_WARM_STATE)
+            calls, prefix = calls + 1, ""
             answer = client.answer(node, query.text)
         except CALL_ERRORS as error:
-            last_error = describe_error(error)
+            last_error = prefix + describe_error(error)
             if attempt < MAX_ATTEMPTS:
                 time.sleep(BACKOFF_S * 2 ** (attempt - 1))
             continue
         decision = replace(
             base,
-            warmup=calls_before + attempt * calls_per_attempt <= WARMUP_CALLS,
+            warmup=calls_before + calls <= WARMUP_CALLS,
             model_version=answer.model_version,
             selected=argmax(answer.probabilities),
             probabilities=answer.probabilities,
@@ -216,5 +222,5 @@ def _decide(
             output_tokens=answer.output_tokens,
             normalised=answer.normalised,
         )
-        return decision, attempt * calls_per_attempt
-    return replace(base, error=last_error), MAX_ATTEMPTS * calls_per_attempt
+        return decision, calls
+    return replace(base, error=last_error), calls

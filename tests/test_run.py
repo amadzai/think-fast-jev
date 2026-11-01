@@ -9,7 +9,7 @@ from bench.anthropic_client import AnthropicClient
 from bench.config import ArmConfig
 from bench.nodes import ROUTER
 from bench.queries import Query
-from bench.run import KEEP_WARM_STATE, append_run_metadata, run_node
+from bench.run import KEEP_WARM_ERROR_PREFIX, KEEP_WARM_STATE, append_run_metadata, run_node
 from bench.systemone import SystemOneClient
 
 JEV = ArmConfig(name="jev", kind="system_one", base_url="https://jev.test", api_key="test-key", model="jev-latest")
@@ -140,7 +140,7 @@ def test_retried_call_counts_every_attempt_toward_warmup(tmp_path: Path, monkeyp
     assert [(r["item_id"], r["error"], r["warmup"]) for r in records] == [("q1", None, True), ("q2", None, False)]
 
 
-def test_two_arms_alternate_order_per_query_and_kev_records_model_time_and_server_settings(tmp_path: Path) -> None:
+def test_two_arms_alternate_order_and_kev_gets_keep_warm_call_model_time_and_server_settings(tmp_path: Path) -> None:
     # Arrange
     kev_requests: list = []
     out = tmp_path / "router.jsonl"
@@ -172,6 +172,33 @@ def test_two_arms_alternate_order_per_query_and_kev_records_model_time_and_serve
     ]  # fmt: skip
     assert [r["warmup"] for r in records if r["arm"] == "kev"] == [True, False, False, False]
     assert (summary.arms["kev"].keep_warm, summary.arms["jev"].keep_warm) == (True, False)
+
+
+def test_failed_keep_warm_call_counts_once_toward_warmup_and_is_labelled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange: q1's first keep-warm call fails, so q1 uses 3 calls and is still warm-up. All keep-warm calls for q2 fail.
+    monkeypatch.setattr("bench.run.BACKOFF_S", 0.0)
+    keep_warm_statuses = iter([500, 200, 500, 500, 500])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/models":
+            return httpx.Response(200, json=KEV_MODELS)
+        if json.loads(request.content)["state"] == KEEP_WARM_STATE and next(keep_warm_statuses) == 500:
+            return httpx.Response(500, text="busy")
+        return httpx.Response(200, json=KEV_RECORDED)
+
+    out = tmp_path / "router.jsonl"
+
+    # Act
+    with SystemOneClient(KEV, transport=httpx.MockTransport(handler)) as kev:
+        run_node(ROUTER, QUERIES[:2], {"kev": kev}, out)
+
+    # Assert
+    records = [json.loads(line) for line in out.read_text().splitlines()]
+    assert [(r["item_id"], r["warmup"]) for r in records] == [("q1", True), ("q2", False)]
+    assert records[0]["error"] is None
+    assert records[1]["error"].startswith(KEEP_WARM_ERROR_PREFIX)
 
 
 def fake_anthropic(seen: list) -> httpx2.MockTransport:
