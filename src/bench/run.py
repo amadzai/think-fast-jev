@@ -165,21 +165,24 @@ def _write(file: TextIO, decision: Decision) -> Decision:
     return decision
 
 
-def _finished_keys(out: Path) -> set[DecisionKey]:
-    # Error records do not count, so a rerun retries them. Scoring keeps the last record per key.
-    if not out.exists():
-        return set()
-    keys = set()
-    for number, line in enumerate(out.read_text().splitlines(), start=1):
+def load_records(path: Path) -> list[Decision]:
+    """Read a results file. Return an empty list when the file does not exist."""
+    if not path.exists():
+        return []
+    records = []
+    for number, line in enumerate(path.read_text().splitlines(), start=1):
         if not line.strip():
             continue
         try:
-            r = json.loads(line)
-            if not r["error"]:
-                keys.add((r["node"], r["item_id"], r["arm"], r["repeat"]))
-        except (ValueError, KeyError, TypeError) as error:
-            raise ResultsFileError(f"{out}:{number}: not a valid record ({error}). Fix or remove the line.") from error
-    return keys
+            records.append(Decision(**json.loads(line)))
+        except (ValueError, TypeError) as error:
+            raise ResultsFileError(f"{path}:{number}: not a valid record ({error}). Fix or remove the line.") from error
+    return records
+
+
+def _finished_keys(out: Path) -> set[DecisionKey]:
+    # Error records do not count, so a rerun retries them. Scoring keeps the last record per key.
+    return {r.key for r in load_records(out) if not r.error}
 
 
 def _decide(

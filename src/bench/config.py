@@ -13,6 +13,23 @@ DEFAULT_HAIKU_MODEL = "claude-haiku-5-5"
 HAIKU_REPEATS = 3
 
 
+@dataclass(frozen=True)
+class Price:
+    """USD per 1M tokens."""
+
+    input_per_1m: float
+    output_per_1m: float
+
+
+# Prices by model ID. A model without a price gets no cost, so a changed HAIKU_MODEL never gets the wrong price.
+# Kev has no price per token: its cost comes from a GPU hourly price and the measured throughput.
+PRICES = {
+    DEFAULT_JEV_MODEL: Price(input_per_1m=0.042, output_per_1m=0.0),
+    # Through the Anthropic API, prompts up to 100K tokens.
+    DEFAULT_HAIKU_MODEL: Price(input_per_1m=0.10, output_per_1m=0.50),
+}
+
+
 class ConfigError(Exception):
     """A required setting is missing."""
 

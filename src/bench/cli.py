@@ -9,10 +9,11 @@ from dotenv import find_dotenv, load_dotenv
 
 from bench.anthropic_client import AnthropicClient
 from bench.arm import CALL_ERRORS, UNREACHABLE_ERRORS, ArmClient, argmax, describe_error
-from bench.config import ArmConfig, ConfigError, arm_configs
-from bench.nodes import NODES, Node
+from bench.config import PRICES, ArmConfig, ConfigError, arm_configs
+from bench.nodes import NODES, ROUTER, Node
 from bench.queries import QueryFileError, load_queries
-from bench.run import ResultsFileError, append_run_metadata, run_node
+from bench.run import ResultsFileError, append_run_metadata, load_records, run_node
+from bench.score import score_node, write_scores
 from bench.systemone import SystemOneClient
 
 app = typer.Typer(no_args_is_help=True, help="Benchmark single-pass decision models against a frontier LLM.")
@@ -115,3 +116,30 @@ def _require_reachable(clients: dict[str, ArmClient]) -> None:
         except CALL_ERRORS as error:
             raise fail(_arm_error(client.config, error))
     typer.echo(f"arms: {', '.join(clients)}")
+
+
+@app.command()
+def score(
+    results: Annotated[list[Path] | None, typer.Argument(help="Results files (JSONL).")] = None,
+    queries: Annotated[Path, typer.Option(help="The query file with the labels (JSONL).")] = Path("data/queries.jsonl"),
+    out: Annotated[Path, typer.Option(help="Writes <out>.csv and <out>.md.")] = Path("results/scores"),
+) -> None:
+    """Score the results files against the labels and write the metrics table."""
+    try:
+        items = load_queries(queries, ROUTER.options)
+        records = [record for path in results or [Path("results/router.jsonl")] for record in load_records(path)]
+    except (QueryFileError, ResultsFileError, OSError) as error:
+        raise fail(str(error))
+    labels = {"router": {q.id: q.router for q in items}, "guardrail": {q.id: q.guardrail for q in items}}
+    nodes = list(dict.fromkeys(r.node for r in records))
+    if not nodes:
+        raise fail("no records to score.")
+    unknown = [node for node in nodes if node not in labels]
+    if unknown:
+        raise fail(f"no labels for node {unknown[0]!r}.")
+    rows = [row for node in nodes for row in score_node(node, records, labels[node], PRICES)]
+    try:
+        typer.echo(write_scores(rows, out), nl=False)
+    except OSError as error:
+        raise fail(str(error))
+    typer.echo(f"{out}.csv, {out}.md: {len(rows)} rows")
