@@ -4,10 +4,11 @@ import csv
 import math
 from collections import Counter
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, fields, replace
 from pathlib import Path
 
-from bench.config import Price
+from bench.config import SELF_HOSTED_HOURLY_USD, Price
+from bench.permute import Permutation
 from bench.run import FIRST_REPEAT, Decision
 
 TOKENS_PER_PRICE_UNIT = 1_000_000
@@ -32,11 +33,16 @@ class Score:
     # The share of items where all repeats selected the same option (coin sector: the same sectors). Only for arms
     # with more than one repeat.
     agreement: float | None = None
+    # Kev, router and guardrail (`bench permute`): the share of items where every option order selects the same option.
+    order_stable: float | None = None
+    # Kev: the mean over the items of the largest probability change of one option between the option orders.
+    order_spread: float | None = None
     model_p50: float | None = None
     model_p95: float | None = None
     e2e_p50: float | None = None
     e2e_p95: float | None = None
-    # USD per 1k decisions. None for a model without a price per token (Kev).
+    # USD per 1k decisions, from the tokens and the price per token. Self-hosted Kev: the GPU hourly price divided by
+    # the decisions per hour of `bench throughput`. None when there is no price or no throughput.
     cost_per_1k: float | None = None
     error_rate: float | None = None
 
@@ -104,6 +110,34 @@ def score_sectors(
             majority = [(_majority_yes(group, sectors), labels[group[0].item_id]) for group in groups]
             rows.append(_majority_row(node, arm, scored, macro_f1=_macro_f1(majority, sectors)))
     return rows
+
+
+def with_kev_scores(
+    rows: list[Score],
+    arm: str,
+    permutations: list[Permutation],
+    decisions_per_hour: float | None,
+) -> list[Score]:
+    """Add the option-order stability and the self-hosted cost to the rows of `arm`.
+
+    The stability uses every item with a valid permutation record, also items outside the quality scores.
+    """
+
+    def with_scores(row: Score) -> Score:
+        if row.arm != arm:
+            return row
+        # A rerun appends a new record for the same item. The last record wins.
+        latest = {p.item_id: p for p in permutations if p.node == row.node and p.arm == arm}.values()
+        valid = [p for p in latest if p.error is None and p.spread]
+        cost = SELF_HOSTED_HOURLY_USD / decisions_per_hour * DECISIONS_PER_COST_UNIT if decisions_per_hour else None
+        return replace(
+            row,
+            order_stable=_mean(bool(p.stable) for p in valid),
+            order_spread=_mean(max((p.spread or {}).values()) for p in valid),
+            cost_per_1k=cost if cost is not None else row.cost_per_1k,
+        )
+
+    return [with_scores(row) for row in rows]
 
 
 def write_scores(rows: list[Score], stem: Path) -> str:

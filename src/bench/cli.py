@@ -2,8 +2,9 @@
 
 from collections import Counter
 from contextlib import ExitStack
+from dataclasses import asdict
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
 import typer
@@ -12,20 +13,42 @@ from dotenv import find_dotenv, load_dotenv
 from bench.anthropic_client import AnthropicClient
 from bench.arm import CALL_ERRORS, UNREACHABLE_ERRORS, ArmClient, argmax, describe_error
 from bench.coins import COINS_PATH, CoinFileError, load_coins
-from bench.config import PRICES, ArmConfig, ConfigError, arm_configs, coingecko_config, generator_config
+from bench.config import (
+    KEV_ARM,
+    PRICES,
+    ArmConfig,
+    ConfigError,
+    arm_configs,
+    coingecko_config,
+    generator_config,
+    kev_config,
+)
 from bench.fetch import MARKETS_PER_PAGE_MAX, FetchError, fetch_coins
 from bench.generate import append_generation_metadata, append_queries, generate_variations, load_generations
 from bench.nodes import COIN_SECTOR, NODES, SECTORS, Node
+from bench.permute import MAX_PERMUTATIONS, PERMUTATIONS, Permutation, load_permutations, permutation_path, permute_node
 from bench.queries import QueryFileError, load_queries
-from bench.run import Item, ResultsFileError, append_run_metadata, load_records, run_node
-from bench.score import Score, score_node, score_sectors, write_scores
-from bench.systemone import SystemOneClient
+from bench.run import (
+    Item,
+    ResultsFileError,
+    append_metadata,
+    append_run_metadata,
+    load_records,
+    read_metadata,
+    run_node,
+)
+from bench.score import Score, score_node, score_sectors, with_kev_scores, write_scores
+from bench.systemone import MAX_CONNECTIONS, SystemOneClient
+from bench.throughput import measure_throughput
 
 app = typer.Typer(no_args_is_help=True, help="Benchmark single-pass decision models against a frontier LLM.")
 
 CHECK_STATE = "Bitcoin price: up 5% in the last 24 hours."
 # The number of categories that `bench fetch` prints, to help pick the sectors.
 TOP_CATEGORIES = 30
+# `bench throughput`: each item 3 times, 32 calls at a time.
+THROUGHPUT_ROUNDS = 3
+THROUGHPUT_CONCURRENCY = 32
 CHECK_NODE = Node(
     name="check",
     question_id="direction",
@@ -144,6 +167,94 @@ def _require_reachable(clients: dict[str, ArmClient]) -> None:
     typer.echo(f"arms: {', '.join(clients)}")
 
 
+def _require_kev_config() -> ArmConfig:
+    try:
+        config = kev_config()
+    except ConfigError as error:
+        raise fail(str(error))
+    if config is None:
+        raise fail("KEV_BASE_URL is not set. This command needs the Kev server.")
+    return config
+
+
+@app.command()
+def permute(
+    node: Annotated[str, typer.Option(help="The decision node: router or guardrail.")],
+    queries: Annotated[Path, typer.Option(help="The query file (JSONL).")] = Path("data/queries.jsonl"),
+    results: Annotated[
+        Path | None,
+        typer.Option(help="The results file of `bench run`. The records go to <results>.permute.jsonl next to it."),
+    ] = None,
+    n_perm: Annotated[
+        int, typer.Option(min=2, max=MAX_PERMUTATIONS, help="The number of option orders.")
+    ] = PERMUTATIONS,
+) -> None:
+    """Ask Kev each reviewed query under several option orders. A rerun skips finished queries."""
+    choice_nodes = [name for name, definition in NODES.items() if not definition.multi_label]
+    if node not in choice_nodes:
+        raise fail(f"node {node!r} has no choice question. Use one of: {', '.join(choice_nodes)}.")
+    definition = NODES[node]
+    out = permutation_path(results or _default_results(node))
+    config = _require_kev_config()
+    try:
+        items, _, _ = _items(definition, queries, COINS_PATH)
+    except (QueryFileError, OSError) as error:
+        raise fail(str(error))
+    try:
+        with SystemOneClient(config) as client:
+            _require_reachable({config.name: client})
+            written, errors, skipped = permute_node(definition, items, client, out, n_perm)
+    except (ResultsFileError, OSError) as error:
+        raise fail(str(error))
+    typer.echo(f"{out}: {written} written ({errors} errors), {skipped} skipped")
+
+
+@app.command()
+def throughput(
+    node: Annotated[str, typer.Option(help=f"The decision node: {', '.join(NODES)}.")],
+    queries: Annotated[Path, typer.Option(help="The query file (JSONL).")] = Path("data/queries.jsonl"),
+    coins: Annotated[Path, typer.Option(help="The coin file of `bench fetch` (JSONL).")] = COINS_PATH,
+    results: Annotated[
+        Path | None,
+        typer.Option(help="The results file of `bench run`. The throughput goes to <results>.meta.json."),
+    ] = None,
+    rounds: Annotated[int, typer.Option(min=1, help="The number of calls for each item.")] = THROUGHPUT_ROUNDS,
+    concurrency: Annotated[
+        int, typer.Option(min=1, max=MAX_CONNECTIONS, help="The number of calls at the same time.")
+    ] = THROUGHPUT_CONCURRENCY,
+) -> None:
+    """Measure Kev's decisions per hour in a burst of concurrent calls, after a warm-up burst.
+
+    `bench score` divides the GPU hourly price by this number to get Kev's self-hosted cost.
+    """
+    if node not in NODES:
+        raise fail(f"unknown node {node!r}. Use one of: {', '.join(NODES)}.")
+    definition = NODES[node]
+    out = results or _default_results(node)
+    config = _require_kev_config()
+    try:
+        items, _, _ = _items(definition, queries, coins)
+    except (QueryFileError, CoinFileError, OSError) as error:
+        raise fail(str(error))
+    if len(items) < concurrency:
+        raise fail(f"{len(items)} items, fewer than --concurrency {concurrency}. One state would be in a batch twice.")
+    try:
+        with SystemOneClient(config) as client:
+            _require_reachable({config.name: client})
+            result = measure_throughput(definition, [item.text for item in items], client, rounds, concurrency)
+    except CALL_ERRORS as error:
+        raise fail(f"{_arm_error(config, error)}. The throughput is not saved.")
+    try:
+        append_metadata(out, "throughput", asdict(result))
+    except (ResultsFileError, OSError) as error:
+        raise fail(str(error))
+    batch = f"{result.mean_batch:.1f}" if result.mean_batch is not None else "n/a"
+    typer.echo(
+        f"{config.name} {node}: {result.requests} calls, {concurrency} at a time, in {result.seconds:.2f} s "
+        f"(mean batch {batch}): {result.decisions_per_hour:,.0f} decisions per hour. Saved in {out.with_suffix('.meta.json')}"
+    )
+
+
 @app.command()
 def generate(
     seed_ids: Annotated[
@@ -259,10 +370,15 @@ def score(
     if any(r.node == COIN_SECTOR.name and r.probabilities and set(r.probabilities) != sectors for r in records):
         raise fail("coin sector records have other sectors than nodes.py. Delete the results file and run again.")
 
+    permutations, throughputs = _kev_data(paths)
+
     def rows_of(node: str) -> list[Score]:
         if node == COIN_SECTOR.name:
-            return score_sectors(node, records, sector_labels, list(COIN_SECTOR.options), PRICES)
-        return score_node(node, records, labels[node], PRICES)
+            rows = score_sectors(node, records, sector_labels, list(COIN_SECTOR.options), PRICES)
+        else:
+            rows = score_node(node, records, labels[node], PRICES)
+        has_kev = any(r.node == node and r.arm == KEV_ARM for r in records)
+        return with_kev_scores(rows, KEV_ARM, permutations, _decisions_per_hour(node, throughputs, has_kev))
 
     rows = [row for node in nodes for row in rows_of(node)]
     try:
@@ -270,3 +386,33 @@ def score(
     except OSError as error:
         raise fail(str(error))
     typer.echo(f"{out}.csv, {out}.md: {len(rows)} rows")
+
+
+def _kev_data(paths: list[Path]) -> tuple[list[Permutation], list[dict[str, Any]]]:
+    """Return Kev's permutation records and throughput entries that belong to the results files."""
+    try:
+        permutations = [p for path in paths for p in load_permutations(permutation_path(path))]
+        throughputs = [t for path in paths for t in read_metadata(path, "throughput") if t.get("arm") == KEV_ARM]
+    except (ResultsFileError, OSError) as error:
+        raise fail(str(error))
+    return permutations, throughputs
+
+
+def _decisions_per_hour(node: str, throughputs: list[dict[str, Any]], has_kev: bool) -> float | None:
+    """Return the throughput of the last `bench throughput` on the node, or None when there is none."""
+    entries = [t for t in throughputs if t.get("node") == node]
+    if not entries:
+        if has_kev:
+            typer.echo(
+                f"{KEV_ARM} {node}: no throughput, so no self-hosted cost. Run `bench throughput --node {node}`."
+            )
+        return None
+    last = entries[-1]
+    value = last.get("decisions_per_hour")
+    if not isinstance(value, int | float) or value <= 0:
+        raise fail(f"{node}: the throughput in the run metadata is not valid: {value!r}")
+    typer.echo(
+        f"{KEV_ARM} {node}: self-hosted cost from {value:,.0f} decisions per hour "
+        f"({last.get('concurrency')} at a time, {last.get('started')})"
+    )
+    return value

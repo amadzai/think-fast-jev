@@ -7,6 +7,8 @@ from typing import Literal
 DEFAULT_JEV_BASE_URL = "https://api.typesafe.ai"
 DEFAULT_JEV_MODEL = "jev-latest"
 DEFAULT_KEV_MODEL = "kev-latest"
+# The arm name of Kev in the records. Only Kev has the permutation endpoint and a self-hosted cost.
+KEV_ARM = "kev"
 DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com"
 DEFAULT_HAIKU_MODEL = "claude-haiku-5-5"
 # Haiku has no logprobs and no temperature setting, so each item runs 3 times to measure agreement.
@@ -33,6 +35,9 @@ PRICES = {
     # Through the Anthropic API, prompts up to 100K tokens.
     DEFAULT_HAIKU_MODEL: Price(input_per_1m=0.10, output_per_1m=0.50),
 }
+
+# Self-hosted Kev: the on-demand price of an AWS g6.xlarge (1 NVIDIA L4) in us-east-1, USD per hour.
+SELF_HOSTED_HOURLY_USD = 0.8048
 
 
 class ConfigError(Exception):
@@ -82,7 +87,7 @@ def kev_config() -> ArmConfig | None:
             "KEV_BASE_URL is set but KEV_API_KEY is not. Add the key from ~/.config/kev/api-key on the PC."
         )
     return ArmConfig(
-        name="kev",
+        name=KEV_ARM,
         kind="system_one",
         base_url=base_url,
         api_key=api_key,

@@ -1,4 +1,6 @@
 import json
+import threading
+import time
 from pathlib import Path
 
 import httpx
@@ -9,9 +11,11 @@ from bench.anthropic_client import AnthropicClient
 from bench.coins import DESCRIPTION_MAX_CHARS, Coin
 from bench.config import ArmConfig
 from bench.nodes import COIN_SECTOR, ROUTER
+from bench.permute import permute_node
 from bench.queries import Query
 from bench.run import KEEP_WARM_ERROR_PREFIX, KEEP_WARM_STATE, append_run_metadata, run_node
 from bench.systemone import SystemOneClient
+from bench.throughput import measure_throughput
 
 JEV = ArmConfig(name="jev", kind="system_one", base_url="https://jev.test", api_key="test-key", model="jev-latest")
 KEV = ArmConfig(
@@ -307,3 +311,82 @@ def test_coin_sector_run_asks_every_sector_in_one_call_and_keeps_probabilities_u
         # Yes at 0.5 for every arm, in the node's option order.
         assert record["selected"] == ["layer_1", "smart_contract_platform"]
     assert records[1]["normalised"] is None
+
+
+# The shape of a Kev /v1/systemone/permute response. The first run has the node's option order.
+PERMUTED = {
+    "runs": [
+        {"order": list(ROUTER.options), "probabilities": PROBABILITIES, "choice": "price", "latency_ms": 21.0},
+        {
+            "order": list(reversed(ROUTER.options)),
+            "probabilities": PROBABILITIES,
+            "choice": "market_chart",
+            "latency_ms": 22.0,
+        },
+    ],
+    "argmax_stable": False,
+    "spread": {name: 0.0 for name in ROUTER.options} | {"price": 0.3, "market_chart": 0.3},
+}
+
+
+def test_kev_permute_pass_records_stability_and_spread_and_rerun_skips_them(tmp_path: Path) -> None:
+    # Arrange
+    paths: list = []
+    requests: list = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=PERMUTED)
+
+    out = tmp_path / "router.permute.jsonl"
+
+    # Act
+    for _ in range(2):
+        with SystemOneClient(KEV, transport=httpx.MockTransport(handler)) as kev:
+            permute_node(ROUTER, QUERIES[:2], kev, out, n_perm=2)
+
+    # Assert
+    assert paths == ["/v1/systemone/permute"] * 2
+    assert requests[0]["request"]["state"] == "What is the price of ETH?"
+    assert requests[0]["request"]["questions"] == ROUTER.system_one_questions()
+    assert (requests[0]["question"], requests[0]["n_perm"]) == ("route", 2)
+    records = [json.loads(line) for line in out.read_text().splitlines()]
+    assert [(r["arm"], r["node"], r["item_id"]) for r in records] == [("kev", "router", "q1"), ("kev", "router", "q2")]
+    assert records[0]["stable"] is False
+    assert records[0]["spread"]["price"] == 0.3
+    assert [run["choice"] for run in records[0]["runs"]] == ["price", "market_chart"]
+    assert records[0]["error"] is None
+
+
+def test_throughput_burst_sends_concurrent_calls_after_a_warmup_burst(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Arrange
+    monkeypatch.setattr("bench.throughput.CAPTURE_PAUSE_S", 0.0)
+    states: list = []
+    in_flight = {"now": 0, "max": 0}
+    lock = threading.Lock()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/models":
+            return httpx.Response(200, json=KEV_MODELS)
+        with lock:
+            states.append(json.loads(request.content)["state"])
+            in_flight["now"] += 1
+            in_flight["max"] = max(in_flight["max"], in_flight["now"])
+        time.sleep(0.05)
+        with lock:
+            in_flight["now"] -= 1
+        return httpx.Response(200, json=KEV_RECORDED)
+
+    # Act
+    with SystemOneClient(KEV, transport=httpx.MockTransport(handler)) as kev:
+        result = measure_throughput(ROUTER, [q.text for q in QUERIES], kev, rounds=2, concurrency=4)
+
+    # Assert: a warm-up burst of 8 calls, then the measured burst of 8 calls: each state once per round.
+    assert len(states) == 16
+    assert sorted(states[8:]) == sorted([q.text for q in QUERIES] * 2)
+    assert in_flight["max"] == 4
+    assert (result.arm, result.node, result.requests, result.concurrency) == ("kev", "router", 8, 4)
+    assert result.models_before == result.models_after == KEV_MODELS
+    # 8 calls of 50 ms, 4 at a time, take 0.1 s or more.
+    assert result.seconds >= 0.1

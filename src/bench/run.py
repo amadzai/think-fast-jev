@@ -2,7 +2,7 @@
 
 import json
 import time
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -138,11 +138,6 @@ def run_node(node: Node, items: Sequence[Item], clients: dict[str, ArmClient], o
 
 def append_run_metadata(out: Path, summary: RunSummary, items: Path, generators: list[str] | None = None) -> None:
     """Add one entry to `<out>.meta.json`, so a resumed run keeps the settings of the runs before it."""
-    path = out.with_suffix(".meta.json")
-    try:
-        runs = json.loads(path.read_text())["runs"] if path.exists() else []
-    except (ValueError, KeyError, TypeError) as error:
-        raise ResultsFileError(f"{path}: not a valid run metadata file ({error})") from error
     entry = asdict(summary) | {
         # The query file or the coin file.
         "items": str(items),
@@ -151,7 +146,32 @@ def append_run_metadata(out: Path, summary: RunSummary, items: Path, generators:
         "warmup_calls": WARMUP_CALLS,
         "max_attempts": MAX_ATTEMPTS,
     }
-    path.write_text(json.dumps({"runs": [*runs, entry]}, indent=2) + "\n")
+    append_metadata(out, "runs", entry)
+
+
+def read_metadata(out: Path, key: str) -> list[dict[str, Any]]:
+    """Return the entries under `key` in `<out>.meta.json`, for example "runs" or "throughput"."""
+    return _metadata(out).get(key, [])
+
+
+def append_metadata(out: Path, key: str, entry: dict[str, Any]) -> None:
+    """Add one entry under `key` in `<out>.meta.json`. The other keys stay."""
+    metadata = _metadata(out)
+    out.with_suffix(".meta.json").write_text(
+        json.dumps(metadata | {key: [*metadata.get(key, []), entry]}, indent=2) + "\n"
+    )
+
+
+def _metadata(out: Path) -> dict[str, list[dict[str, Any]]]:
+    path = out.with_suffix(".meta.json")
+    try:
+        metadata = json.loads(path.read_text()) if path.exists() else {}
+    except ValueError as error:
+        raise ResultsFileError(f"{path}: not a valid run metadata file ({error})") from error
+    entries = metadata.values() if isinstance(metadata, dict) else [None]
+    if not all(isinstance(v, list) and all(isinstance(e, dict) for e in v) for v in entries):
+        raise ResultsFileError(f"{path}: not a valid run metadata file (each key must have a list of objects)")
+    return metadata
 
 
 def _rotated(arms: list[str], index: int) -> list[str]:
@@ -185,6 +205,11 @@ def _write(file: TextIO, decision: Decision) -> Decision:
 
 def load_records(path: Path) -> list[Decision]:
     """Read a results file. Return an empty list when the file does not exist."""
+    return load_jsonl(path, Decision)
+
+
+def load_jsonl[T](path: Path, record: Callable[..., T]) -> list[T]:
+    """Read one record per line. Return an empty list when the file does not exist."""
     if not path.exists():
         return []
     records = []
@@ -192,7 +217,7 @@ def load_records(path: Path) -> list[Decision]:
         if not line.strip():
             continue
         try:
-            records.append(Decision(**json.loads(line)))
+            records.append(record(**json.loads(line)))
         except (ValueError, TypeError) as error:
             raise ResultsFileError(f"{path}:{number}: not a valid record ({error}). Fix or remove the line.") from error
     return records

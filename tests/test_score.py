@@ -1,8 +1,9 @@
 import pytest
 
 from bench.config import Price
+from bench.permute import Permutation
 from bench.run import Decision
-from bench.score import score_node, score_sectors
+from bench.score import score_node, score_sectors, with_kev_scores
 
 LABELS = {"q1": "price", "q2": "market_chart", "q3": "price"}
 MODELS = {"jev": "jev-latest", "kev": "kev-latest", "haiku": "claude-haiku-5-5"}
@@ -113,3 +114,48 @@ def test_coin_sector_score_gives_macro_f1_over_sectors_and_binary_brier_per_ques
     assert haiku.brier == pytest.approx(0.44 / 9)
     # Only c2 has the same yes sectors in all 3 repeats.
     assert haiku.agreement == pytest.approx(1 / 3)
+
+
+def perm(item: str, stable: bool | None, spread: float = 0.0) -> Permutation:
+    """A Kev permutation record. `stable` None makes an error record. The price spread is twice the other spread."""
+    if stable is None:
+        return Permutation(
+            arm="kev",
+            model="kev-latest",
+            node="router",
+            item_id=item,
+            n_perm=6,
+            seed=0,
+            timestamp="t",
+            error="HTTP 500",
+        )
+    return Permutation(
+        arm="kev", model="kev-latest", node="router", item_id=item, n_perm=6, seed=0, timestamp="t",
+        stable=stable, spread={"price": spread, "market_chart": spread / 2}, runs=[],
+    )  # fmt: skip
+
+
+def test_kev_row_gets_option_order_stability_and_self_hosted_cost() -> None:
+    # Arrange: q2 has an error record, then a success from a rerun. Only the success counts.
+    rows = score_node("router", [rec("jev", "q1", 1, 0.8, 200), rec("kev", "q1", 1, 0.8, 70)], LABELS, PRICES)
+    permutations = [perm("q1", True, 0.1), perm("q2", None), perm("q2", False, 0.4), perm("q3", True, 0.0)]
+
+    # Act
+    rows = {row.arm: row for row in with_kev_scores(rows, "kev", permutations, decisions_per_hour=36_000)}
+
+    # Assert
+    kev, jev = rows["kev"], rows["jev"]
+    assert kev.order_stable == pytest.approx(2 / 3)
+    # The largest spread of each item: 0.1, 0.4 and 0.
+    assert kev.order_spread == pytest.approx(0.5 / 3)
+    # $0.8048 per hour for 36,000 decisions: $0.8048 / 36 per 1k decisions.
+    assert kev.cost_per_1k == pytest.approx(0.8048 / 36)
+    assert (jev.order_stable, jev.order_spread, jev.cost_per_1k) == (None, None, pytest.approx(0.0168))
+
+
+def test_kev_without_permutations_or_throughput_keeps_empty_scores() -> None:
+    # Act
+    rows = with_kev_scores(score_node("router", [rec("kev", "q1", 1, 0.8, 70)], LABELS, PRICES), "kev", [], None)
+
+    # Assert
+    assert [(row.order_stable, row.order_spread, row.cost_per_1k) for row in rows] == [(None, None, None)]
