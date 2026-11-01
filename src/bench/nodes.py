@@ -102,7 +102,7 @@ class Sector:
     categories: tuple[str, ...]
 
 
-# Broad sectors with reliable CoinGecko tags. `bench fetch` prints the number of coins per sector. Each sector has 6 or
+# Broad sectors with reliable CoinGecko categories. `bench fetch` prints the number of coins per sector. Each sector has 6 or
 # more of the 200 fetched coins (2026-11-01). Sectors with fewer coins give an unstable F1.
 SECTORS = {
     "layer_1": Sector("A base blockchain with its own validators or miners.", ("Layer 1 (L1)",)),
