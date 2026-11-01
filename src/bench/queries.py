@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass, fields
 from pathlib import Path
 
+from bench.nodes import GUARDRAIL, ROUTER
+
 
 class QueryFileError(Exception):
     """A line in the query file is not a valid query."""
@@ -19,7 +21,7 @@ class Query:
     reviewed: bool
 
 
-def load_queries(path: Path, router_options: dict[str, str]) -> list[Query]:
+def load_queries(path: Path) -> list[Query]:
     queries = []
     names = {field.name for field in fields(Query)}
     for number, line in enumerate(path.read_text().splitlines(), start=1):
@@ -35,8 +37,10 @@ def load_queries(path: Path, router_options: dict[str, str]) -> list[Query]:
         query = Query(**data)
         if not isinstance(query.reviewed, bool):
             raise QueryFileError(f"{where}: reviewed must be true or false")
-        if query.router not in router_options:
+        if query.router not in ROUTER.options:
             raise QueryFileError(f"{where}: unknown router label {query.router!r}")
+        if query.guardrail not in GUARDRAIL.options:
+            raise QueryFileError(f"{where}: unknown guardrail label {query.guardrail!r}")
         queries.append(query)
     ids = [query.id for query in queries]
     if len(ids) != len(set(ids)):

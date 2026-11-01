@@ -64,4 +64,19 @@ ROUTER = Node(
     },
 )
 
-NODES = {node.name: node for node in [ROUTER]}
+GUARDRAIL = Node(
+    name="guardrail",
+    question_id="guard",
+    instructions=(
+        "The state is a question from a user of a crypto market-data assistant. "
+        "Decide if the assistant may answer the question."
+    ),
+    options={
+        # `allow` does not mean that a data tool can answer the question. The router decides this with `unsupported`.
+        "allow": "A question about crypto markets or crypto data that asks for facts.",
+        "advice": "A request for personal financial advice: what the user should buy, sell or hold, or when.",
+        "off_topic": "A question that is not about crypto markets.",
+    },
+)
+
+NODES = {node.name: node for node in [ROUTER, GUARDRAIL]}

@@ -10,7 +10,7 @@ from dotenv import find_dotenv, load_dotenv
 from bench.anthropic_client import AnthropicClient
 from bench.arm import CALL_ERRORS, UNREACHABLE_ERRORS, ArmClient, argmax, describe_error
 from bench.config import PRICES, ArmConfig, ConfigError, arm_configs
-from bench.nodes import NODES, ROUTER, Node
+from bench.nodes import NODES, Node
 from bench.queries import QueryFileError, load_queries
 from bench.run import ResultsFileError, append_run_metadata, load_records, run_node
 from bench.score import score_node, write_scores
@@ -80,6 +80,10 @@ def _check_arm(config: ArmConfig) -> bool:
     return True
 
 
+def _default_results(node: str) -> Path:
+    return Path("results") / f"{node}.jsonl"
+
+
 @app.command()
 def run(
     node: Annotated[str, typer.Option(help=f"The decision node: {', '.join(NODES)}.")],
@@ -90,10 +94,10 @@ def run(
     if node not in NODES:
         raise fail(f"unknown node {node!r}. Use one of: {', '.join(NODES)}.")
     definition = NODES[node]
-    out = out or Path("results") / f"{node}.jsonl"
+    out = out or _default_results(node)
     try:
         configs = arm_configs()
-        items = load_queries(queries, definition.options)
+        items = load_queries(queries)
     except (ConfigError, QueryFileError, OSError) as error:
         raise fail(str(error))
 
@@ -120,17 +124,22 @@ def _require_reachable(clients: dict[str, ArmClient]) -> None:
 
 @app.command()
 def score(
-    results: Annotated[list[Path] | None, typer.Argument(help="Results files (JSONL).")] = None,
+    results: Annotated[
+        list[Path] | None,
+        typer.Argument(help="Results files (JSONL). Default: the results/<node>.jsonl files that exist."),
+    ] = None,
     queries: Annotated[Path, typer.Option(help="The query file with the labels (JSONL).")] = Path("data/queries.jsonl"),
     out: Annotated[Path, typer.Option(help="Writes <out>.csv and <out>.md.")] = Path("results/scores"),
 ) -> None:
     """Score the results files against the labels and write the metrics table."""
-    paths = results or [Path("results/router.jsonl")]
+    paths = results or [path for path in map(_default_results, NODES) if path.exists()]
+    if not paths:
+        raise fail("no results files in results/. Pass the results file of `bench run --out` as an argument.")
     missing = [path for path in paths if not path.exists()]
     if missing:
         raise fail(f"{missing[0]}: file not found. Pass the results file of `bench run --out` as an argument.")
     try:
-        items = load_queries(queries, ROUTER.options)
+        items = load_queries(queries)
         records = [record for path in paths for record in load_records(path)]
     except (QueryFileError, ResultsFileError, OSError) as error:
         raise fail(str(error))
