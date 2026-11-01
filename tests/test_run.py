@@ -9,11 +9,18 @@ from bench.anthropic_client import AnthropicClient
 from bench.config import ArmConfig
 from bench.nodes import ROUTER
 from bench.queries import Query
-from bench.run import append_run_metadata, run_node
+from bench.run import KEEP_WARM_STATE, append_run_metadata, run_node
 from bench.systemone import SystemOneClient
 
 JEV = ArmConfig(name="jev", kind="system_one", base_url="https://jev.test", api_key="test-key", model="jev-latest")
-KEV = ArmConfig(name="kev", kind="system_one", base_url="http://kev.test:8009", api_key="test-key", model="kev-latest")
+KEV = ArmConfig(
+    name="kev",
+    kind="system_one",
+    base_url="http://kev.test:8009",
+    api_key="test-key",
+    model="kev-latest",
+    keep_warm=True,
+)
 HAIKU = ArmConfig(
     name="haiku",
     kind="anthropic",
@@ -135,12 +142,13 @@ def test_retried_call_counts_every_attempt_toward_warmup(tmp_path: Path, monkeyp
 
 def test_two_arms_alternate_order_per_query_and_kev_records_model_time_and_server_settings(tmp_path: Path) -> None:
     # Arrange
+    kev_requests: list = []
     out = tmp_path / "router.jsonl"
 
     # Act
     with (
         SystemOneClient(JEV, transport=fake_system_one(RECORDED)) as jev,
-        SystemOneClient(KEV, transport=fake_system_one(KEV_RECORDED, models=KEV_MODELS)) as kev,
+        SystemOneClient(KEV, transport=fake_system_one(KEV_RECORDED, models=KEV_MODELS, seen=kev_requests)) as kev,
     ):
         summary = run_node(ROUTER, QUERIES, {"jev": jev, "kev": kev}, out)
 
@@ -155,6 +163,15 @@ def test_two_arms_alternate_order_per_query_and_kev_records_model_time_and_serve
     kev_record = records[1]
     assert (kev_record["model_ms"], kev_record["output_tokens"]) == (13.4, 52)
     assert summary.arms["kev"].models_before == summary.arms["kev"].models_after == KEV_MODELS
+    # Kev gets one unrecorded keep-warm call right before each recorded call.
+    assert [r["state"] for r in kev_requests] == [
+        KEEP_WARM_STATE, "What is the price of ETH?",
+        KEEP_WARM_STATE, "BTC price in EUR",
+        KEEP_WARM_STATE, "ADA price now",
+        KEEP_WARM_STATE, "Price of XRP",
+    ]  # fmt: skip
+    assert [r["warmup"] for r in records if r["arm"] == "kev"] == [True, False, False, False]
+    assert (summary.arms["kev"].keep_warm, summary.arms["jev"].keep_warm) == (True, False)
 
 
 def fake_anthropic(seen: list) -> httpx2.MockTransport:

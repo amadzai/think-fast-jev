@@ -17,6 +17,8 @@ MAX_ATTEMPTS = 3
 BACKOFF_S = 1.0
 # Repeat numbers start at 1. Jev and Kev have repeat 1 only, Haiku has repeats 1 to 3.
 FIRST_REPEAT = 1
+# The state of a keep-warm call. It differs from every query, so the recorded call gets no prefix cache hit from it.
+KEEP_WARM_STATE = "Keep-warm call. Not recorded."
 
 type DecisionKey = tuple[str, str, str, int]
 
@@ -57,6 +59,8 @@ class ArmSettings:
     base_url: str
     model: str
     repeats: int
+    # True: each recorded call came right after one unrecorded keep-warm call (Kev).
+    keep_warm: bool
     # For example Haiku's thinking setting. Empty for Jev and Kev.
     request_settings: dict[str, Any]
     # The model versions that the responses of this run report.
@@ -107,6 +111,7 @@ def run_node(node: Node, queries: list[Query], clients: dict[str, ArmClient], ou
                 base_url=client.config.base_url,
                 model=client.config.model,
                 repeats=client.config.repeats,
+                keep_warm=client.config.keep_warm,
                 request_settings=client.request_settings,
                 versions=tuple(sorted({d.model_version for d in decisions if d.arm == arm and d.model_version})),
                 models_before=models_before[arm],
@@ -177,7 +182,8 @@ def _finished_keys(out: Path) -> set[DecisionKey]:
 def _decide(
     node: Node, query: Query, arm: str, repeat: int, client: ArmClient, calls_before: int
 ) -> tuple[Decision, int]:
-    """Return the decision and the number of HTTP calls it used."""
+    """Return the decision and the number of HTTP calls it used, keep-warm calls included."""
+    calls_per_attempt = 2 if client.config.keep_warm else 1
     base = Decision(
         arm=arm,
         model=client.config.model,
@@ -190,6 +196,8 @@ def _decide(
     last_error = None
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
+            if client.config.keep_warm:
+                client.answer(node, KEEP_WARM_STATE)
             answer = client.answer(node, query.text)
         except CALL_ERRORS as error:
             last_error = describe_error(error)
@@ -198,7 +206,7 @@ def _decide(
             continue
         decision = replace(
             base,
-            warmup=calls_before + attempt <= WARMUP_CALLS,
+            warmup=calls_before + attempt * calls_per_attempt <= WARMUP_CALLS,
             model_version=answer.model_version,
             selected=argmax(answer.probabilities),
             probabilities=answer.probabilities,
@@ -208,5 +216,5 @@ def _decide(
             output_tokens=answer.output_tokens,
             normalised=answer.normalised,
         )
-        return decision, attempt
-    return replace(base, error=last_error), MAX_ATTEMPTS
+        return decision, attempt * calls_per_attempt
+    return replace(base, error=last_error), MAX_ATTEMPTS * calls_per_attempt

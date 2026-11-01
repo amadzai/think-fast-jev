@@ -31,6 +31,8 @@ class ArmConfig:
     repeats: int = 1
     # Extra text for the error message when the server cannot be reached.
     unreachable_hint: str = ""
+    # True: send one unrecorded call right before each recorded call, so the recorded call never follows an idle gap.
+    keep_warm: bool = False
 
 
 def jev_config() -> ArmConfig:
@@ -63,6 +65,9 @@ def kev_config() -> ArmConfig | None:
         api_key=api_key,
         model=os.environ.get("KEV_MODEL", DEFAULT_KEV_MODEL),
         unreachable_hint="Is kev-serve running on the PC, and is KEV_BASE_URL the PC's current IP address?",
+        # Kev's model time rises from about 60 ms to about 200 ms after 8 s or more of idle on the PC. Production
+        # traffic keeps a GPU busy, so the benchmark measures the warm path.
+        keep_warm=True,
     )
 
 
