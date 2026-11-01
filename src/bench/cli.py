@@ -124,8 +124,9 @@ def _items(node: Node, queries: Path, coins: Path) -> tuple[list[Item], Path, li
     """Return the items, the file that they come from, and the models that generated queries in it."""
     if node is COIN_SECTOR:
         loaded = load_coins(coins)
-        typer.echo(f"coins: {len(loaded)}")
-        return list(loaded), coins, []
+        described = [coin for coin in loaded if coin.has_description]
+        typer.echo(f"coins: {len(described)}, {len(loaded) - len(described)} without a description (skipped)")
+        return list(described), coins, []
     all_queries = load_queries(queries)
     generators = sorted({g["model"] for g in load_generations(queries)})
     reviewed = [q for q in all_queries if q.reviewed]
@@ -207,7 +208,7 @@ def fetch(
     except (httpx.HTTPError, FetchError, OSError) as exc:
         error = describe_error(exc)
     coins = load_coins(COINS_PATH) if COINS_PATH.exists() else []
-    empty = sum(not coin.description.strip() for coin in coins)
+    empty = sum(not coin.has_description for coin in coins)
     typer.echo(f"{COINS_PATH}: {len(coins)} coins ({added} added, {empty} without a description)")
     sectors = Counter(name for coin in coins for name in coin.sectors)
     typer.echo("coins per sector:")

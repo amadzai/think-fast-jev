@@ -32,6 +32,11 @@ class Coin:
         return f"Name: {self.name}\nSymbol: {self.symbol.upper()}\nDescription: {_cut(self.description)}"
 
     @property
+    def has_description(self) -> bool:
+        # Without a description, the arms see only the name and the symbol. The run skips these coins.
+        return bool(_cut(self.description))
+
+    @property
     def sectors(self) -> frozenset[str]:
         """Return the sectors that the coin's CoinGecko categories give. These are the labels."""
         categories = set(self.categories)

@@ -102,7 +102,8 @@ class Sector:
     categories: tuple[str, ...]
 
 
-# Broad sectors with reliable CoinGecko tags. `bench fetch` prints the number of coins per sector.
+# Broad sectors with reliable CoinGecko tags. `bench fetch` prints the number of coins per sector. Each sector has 6 or
+# more of the 200 fetched coins (2026-11-01). Sectors with fewer coins give an unstable F1.
 SECTORS = {
     "layer_1": Sector("A base blockchain with its own validators or miners.", ("Layer 1 (L1)",)),
     "layer_2": Sector("A network that runs on top of a base blockchain to scale it.", ("Layer 2 (L2)",)),
@@ -112,23 +113,16 @@ SECTORS = {
     "defi": Sector("Financial services that run on a blockchain without a bank.", ("Decentralized Finance (DeFi)",)),
     "dex": Sector("An exchange where users trade tokens from their own wallets.", ("Decentralized Exchange (DEX)",)),
     "lending": Sector("A protocol where users lend or borrow crypto.", ("Lending/Borrowing Protocols",)),
-    "liquid_staking": Sector(
-        "Staking that gives the user a token that they can trade while it is staked.", ("Liquid Staking",)
-    ),
     "stablecoin": Sector("A token with a value that is fixed to a currency or an asset.", ("Stablecoins",)),
-    "wrapped": Sector("A token that represents another coin on a different blockchain.", ("Wrapped-Tokens",)),
     "exchange_token": Sector(
         "The token of a centralised exchange.", ("Exchange-based Tokens", "Centralized Exchange (CEX) Token")
     ),
     "meme": Sector("A coin based on a joke, a meme or internet culture.", ("Meme",)),
     "ai": Sector("A project about artificial intelligence or AI agents.", ("Artificial Intelligence (AI)",)),
-    "gaming": Sector("Blockchain games or a platform for blockchain games.", ("Gaming (GameFi)",)),
     "rwa": Sector("Tokens for real-world assets such as bonds, property or commodities.", ("Real World Assets (RWA)",)),
-    "oracle": Sector("A service that brings data from outside into smart contracts.", ("Oracle",)),
-    "privacy": Sector("A coin that hides the sender, the receiver or the amount.", ("Privacy Coins",)),
+    "governance": Sector("A token that gives its holders a vote on how a protocol changes.", ("Governance",)),
     "depin": Sector("A network of physical devices or hardware that users run for rewards.", ("DePIN",)),
     "infrastructure": Sector("Tools and services that other blockchain projects build on.", ("Infrastructure",)),
-    "zero_knowledge": Sector("A project that uses zero-knowledge proofs.", ("Zero Knowledge (ZK)",)),
 }
 
 COIN_SECTOR = Node(
