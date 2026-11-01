@@ -1,25 +1,31 @@
 """This module defines the `bench` command line."""
 
+from collections import Counter
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Annotated
 
+import httpx
 import typer
 from dotenv import find_dotenv, load_dotenv
 
 from bench.anthropic_client import AnthropicClient
 from bench.arm import CALL_ERRORS, UNREACHABLE_ERRORS, ArmClient, argmax, describe_error
-from bench.config import PRICES, ArmConfig, ConfigError, arm_configs, generator_config
+from bench.coins import COINS_PATH, CoinFileError, load_coins
+from bench.config import PRICES, ArmConfig, ConfigError, arm_configs, coingecko_config, generator_config
+from bench.fetch import MARKETS_PER_PAGE_MAX, FetchError, fetch_coins
 from bench.generate import append_generation_metadata, append_queries, generate_variations, load_generations
-from bench.nodes import NODES, Node
+from bench.nodes import COIN_SECTOR, NODES, SECTORS, Node
 from bench.queries import QueryFileError, load_queries
-from bench.run import ResultsFileError, append_run_metadata, load_records, run_node
-from bench.score import score_node, write_scores
+from bench.run import Item, ResultsFileError, append_run_metadata, load_records, run_node
+from bench.score import Score, score_node, score_sectors, write_scores
 from bench.systemone import SystemOneClient
 
 app = typer.Typer(no_args_is_help=True, help="Benchmark single-pass decision models against a frontier LLM.")
 
 CHECK_STATE = "Bitcoin price: up 5% in the last 24 hours."
+# The number of categories that `bench fetch` prints, to help pick the sectors.
+TOP_CATEGORIES = 30
 CHECK_NODE = Node(
     name="check",
     question_id="direction",
@@ -89,6 +95,7 @@ def _default_results(node: str) -> Path:
 def run(
     node: Annotated[str, typer.Option(help=f"The decision node: {', '.join(NODES)}.")],
     queries: Annotated[Path, typer.Option(help="The query file (JSONL).")] = Path("data/queries.jsonl"),
+    coins: Annotated[Path, typer.Option(help="The coin file of `bench fetch` (JSONL).")] = COINS_PATH,
     out: Annotated[Path | None, typer.Option(help="The results file (JSONL). Default: results/<node>.jsonl.")] = None,
 ) -> None:
     """Run the arms on one decision node. A rerun with the same output skips finished decisions."""
@@ -98,22 +105,32 @@ def run(
     out = out or _default_results(node)
     try:
         configs = arm_configs()
-        items = load_queries(queries)
-        generators = sorted({g["model"] for g in load_generations(queries)})
-    except (ConfigError, QueryFileError, OSError) as error:
+        items, source, generators = _items(definition, queries, coins)
+    except (ConfigError, QueryFileError, CoinFileError, OSError) as error:
         raise fail(str(error))
-    unreviewed = sum(not q.reviewed for q in items)
-    typer.echo(f"queries: {len(items) - unreviewed} reviewed, {unreviewed} not reviewed (skipped)")
 
     try:
         with ExitStack() as stack:
             clients = {c.name: stack.enter_context(_client(c)) for c in configs}
             _require_reachable(clients)
             summary = run_node(definition, items, clients, out)
-        append_run_metadata(out, summary, queries, generators)
+        append_run_metadata(out, summary, source, generators)
     except (ResultsFileError, OSError) as error:
         raise fail(str(error))
     typer.echo(f"{out}: {summary.written} written ({summary.errors} errors), {summary.skipped} skipped")
+
+
+def _items(node: Node, queries: Path, coins: Path) -> tuple[list[Item], Path, list[str]]:
+    """Return the items, the file that they come from, and the models that generated queries in it."""
+    if node is COIN_SECTOR:
+        loaded = load_coins(coins)
+        typer.echo(f"coins: {len(loaded)}")
+        return list(loaded), coins, []
+    all_queries = load_queries(queries)
+    generators = sorted({g["model"] for g in load_generations(queries)})
+    reviewed = [q for q in all_queries if q.reviewed]
+    typer.echo(f"queries: {len(reviewed)} reviewed, {len(all_queries) - len(reviewed)} not reviewed (skipped)")
+    return list(reviewed), queries, generators
 
 
 def _require_reachable(clients: dict[str, ArmClient]) -> None:
@@ -167,12 +184,50 @@ def generate(
 
 
 @app.command()
+def fetch(
+    limit: Annotated[
+        int, typer.Option(min=1, max=MARKETS_PER_PAGE_MAX, help="The number of top coins by market cap.")
+    ] = 200,
+) -> None:
+    """Fetch name, symbol, description and categories of the top coins from the CoinGecko Demo API.
+
+    The data goes to data/coingecko/ (gitignored). A rerun continues after an error. At the end, the command prints
+    the number of coins per sector and the most common categories. Use them to pick the sectors.
+    """
+    try:
+        config = coingecko_config()
+        done = {coin.id for coin in load_coins(COINS_PATH)} if COINS_PATH.exists() else set()
+    except (ConfigError, CoinFileError, OSError) as error:
+        raise fail(str(error))
+    added, error = 0, None
+    try:
+        for coin in fetch_coins(config, limit, COINS_PATH, done):
+            added += 1
+            typer.echo(f"{added}: {coin.id}")
+    except (httpx.HTTPError, FetchError, OSError) as exc:
+        error = describe_error(exc)
+    coins = load_coins(COINS_PATH) if COINS_PATH.exists() else []
+    empty = sum(not coin.description.strip() for coin in coins)
+    typer.echo(f"{COINS_PATH}: {len(coins)} coins ({added} added, {empty} without a description)")
+    sectors = Counter(name for coin in coins for name in coin.sectors)
+    typer.echo("coins per sector:")
+    for name in SECTORS:
+        typer.echo(f"  {sectors[name]:4}  {name}")
+    typer.echo("most common categories:")
+    for category, count in Counter(c for coin in coins for c in coin.categories).most_common(TOP_CATEGORIES):
+        typer.echo(f"  {count:4}  {category}")
+    if error:
+        raise fail(f"stopped after {added} coins: {error}. Run the command again to continue.")
+
+
+@app.command()
 def score(
     results: Annotated[
         list[Path] | None,
         typer.Argument(help="Results files (JSONL). Default: the results/<node>.jsonl files that exist."),
     ] = None,
     queries: Annotated[Path, typer.Option(help="The query file with the labels (JSONL).")] = Path("data/queries.jsonl"),
+    coins: Annotated[Path, typer.Option(help="The coin file with the coin sector labels (JSONL).")] = COINS_PATH,
     out: Annotated[Path, typer.Option(help="Writes <out>.csv and <out>.md.")] = Path("results/scores"),
 ) -> None:
     """Score the results files against the labels and write the metrics table."""
@@ -191,10 +246,24 @@ def score(
     nodes = list(dict.fromkeys(r.node for r in records))
     if not nodes:
         raise fail("no records to score.")
-    unknown = [node for node in nodes if node not in labels]
+    unknown = [node for node in nodes if node not in labels and node != COIN_SECTOR.name]
     if unknown:
         raise fail(f"no labels for node {unknown[0]!r}.")
-    rows = [row for node in nodes for row in score_node(node, records, labels[node], PRICES)]
+    try:
+        sector_labels = {c.id: c.sectors for c in load_coins(coins)} if COIN_SECTOR.name in nodes else {}
+    except (CoinFileError, OSError) as error:
+        raise fail(str(error))
+    # The labels and the Brier score use the current sector list. Records from an older list do not match it.
+    sectors = set(COIN_SECTOR.options)
+    if any(r.node == COIN_SECTOR.name and r.probabilities and set(r.probabilities) != sectors for r in records):
+        raise fail("coin sector records have other sectors than nodes.py. Delete the results file and run again.")
+
+    def rows_of(node: str) -> list[Score]:
+        if node == COIN_SECTOR.name:
+            return score_sectors(node, records, sector_labels, list(COIN_SECTOR.options), PRICES)
+        return score_node(node, records, labels[node], PRICES)
+
+    rows = [row for node in nodes for row in rows_of(node)]
     try:
         typer.echo(write_scores(rows, out), nl=False)
     except OSError as error:

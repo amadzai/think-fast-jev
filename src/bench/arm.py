@@ -10,6 +10,8 @@ from bench.config import ArmConfig
 from bench.nodes import Node
 
 ERROR_BODY_CHARS = 300
+# A multi-label node (coin sector) says yes to an option at this probability or more, for every arm.
+YES_THRESHOLD = 0.5
 TIMEOUT_S = 30.0
 # A short connect timeout gives a fast, clear error when the Kev PC is off or its IP address changed.
 CONNECT_TIMEOUT_S = 5.0
@@ -77,3 +79,7 @@ def in_option_order(node: Node, values: object, raw: str) -> dict[str, Any]:
 def argmax(probabilities: dict[str, float]) -> str:
     # The same decision rule for every arm. A tie goes to the option that comes first in the node.
     return max(probabilities, key=probabilities.__getitem__)
+
+
+def yes_options(probabilities: dict[str, float]) -> list[str]:
+    return [name for name, p in probabilities.items() if p >= YES_THRESHOLD]

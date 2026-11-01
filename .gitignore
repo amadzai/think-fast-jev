@@ -4,4 +4,6 @@ __pycache__/
 .claude/settings.local.json
 CLAUDE.md
 .scratch/
-.ruff_cache.envrc
+.ruff_cache
+.envrc
+data/coingecko/

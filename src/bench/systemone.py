@@ -59,12 +59,12 @@ class SystemOneClient:
         response.raise_for_status()
         try:
             data = response.json()
-            answer = data["answers"][node.question_id]
-        except (ValueError, KeyError, TypeError) as error:
+            probabilities = _probabilities(node, data["answers"])
+        except (ValueError, KeyError, TypeError, AttributeError) as error:
             raise SystemOneError(f"unexpected response: {response.text[:ERROR_BODY_CHARS]}") from error
         usage = data.get("usage") or {}
         return Answer(
-            probabilities=_probabilities(node, answer),
+            probabilities=probabilities,
             model_version=data.get("model", self._config.model),
             # Kev returns the model time. Hosted Jev does not.
             model_ms=data.get("latency_ms"),
@@ -74,7 +74,13 @@ class SystemOneClient:
         )
 
 
-def _probabilities(node: Node, answer: Any) -> dict[str, float]:
-    probabilities = answer.get("probabilities") if isinstance(answer, dict) else None
+def _probabilities(node: Node, answers: dict[str, Any]) -> dict[str, float]:
+    """Raise KeyError, TypeError, ValueError or AttributeError when the answers do not have the node's shape."""
+    if node.multi_label:
+        # One noul answer per option. `noul` is the probability of yes.
+        probabilities = {name: answer["noul"] for name, answer in answers.items()}
+    else:
+        answer = answers[node.question_id]
+        probabilities = answer.get("probabilities") if isinstance(answer, dict) else None
     # Keep the node's option order, not the order of the response.
-    return {name: float(p) for name, p in in_option_order(node, probabilities, str(answer)).items()}
+    return {name: float(p) for name, p in in_option_order(node, probabilities, str(answers)).items()}

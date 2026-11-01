@@ -2,7 +2,7 @@ import pytest
 
 from bench.config import Price
 from bench.run import Decision
-from bench.score import score_node
+from bench.score import score_node, score_sectors
 
 LABELS = {"q1": "price", "q2": "market_chart", "q3": "price"}
 MODELS = {"jev": "jev-latest", "kev": "kev-latest", "haiku": "claude-haiku-5-5"}
@@ -75,3 +75,41 @@ def test_arm_without_a_price_has_no_cost() -> None:
 
     # Assert
     assert [(row.arm, row.accuracy, row.cost_per_1k) for row in rows] == [("kev", 1.0, None)]
+
+
+def sector(arm: str, item: str, repeat: int, defi: float, meme: float) -> Decision:
+    """A coin sector record for the sectors defi, meme and ai. The ai probability is always 0."""
+    probabilities = {"defi": defi, "meme": meme, "ai": 0.0}
+    return Decision(
+        arm=arm, model=MODELS[arm], node="coin_sector", item_id=item, repeat=repeat, warmup=False, timestamp="t",
+        selected=[name for name, p in probabilities.items() if p >= 0.5], probabilities=probabilities, e2e_ms=100,
+    )  # fmt: skip
+
+
+def test_coin_sector_score_gives_macro_f1_over_sectors_and_binary_brier_per_question() -> None:
+    # Arrange: no coin is in ai and no arm says yes to ai, so ai has no F1 and stays out of the macro F1.
+    labels = {"c1": frozenset({"defi"}), "c2": frozenset({"meme"}), "c3": frozenset()}
+    records = [
+        sector("jev", "c1", 1, 0.8, 0.6), sector("jev", "c2", 1, 0.2, 0.9), sector("jev", "c3", 1, 0.4, 0.0),
+        sector("haiku", "c1", 1, 0.9, 0.1), sector("haiku", "c1", 2, 0.9, 0.1), sector("haiku", "c1", 3, 0.9, 0.7),
+        sector("haiku", "c2", 1, 0.1, 0.8), sector("haiku", "c2", 2, 0.1, 0.8), sector("haiku", "c2", 3, 0.1, 0.8),
+        sector("haiku", "c3", 1, 0.6, 0.1), sector("haiku", "c3", 2, 0.2, 0.1), sector("haiku", "c3", 3, 0.3, 0.1),
+    ]  # fmt: skip
+
+    # Act
+    rows = {row.arm: row for row in score_sectors("coin_sector", records, labels, ["defi", "meme", "ai"], PRICES)}
+
+    # Assert
+    jev, haiku, majority = rows["jev"], rows["haiku"], rows["haiku (majority of 3)"]
+    assert (jev.items, haiku.items, majority.items) == (3, 3, 3)
+    # Jev: defi F1 1, meme F1 2/3 (c1 is a false yes). Haiku repeat 1: defi F1 2/3 (c3 is a false yes), meme F1 1.
+    assert jev.macro_f1 == pytest.approx(5 / 6)
+    assert haiku.macro_f1 == pytest.approx(5 / 6)
+    # Majority: c1 defi, c2 meme, c3 nothing.
+    assert majority.macro_f1 == pytest.approx(1.0)
+    assert (jev.accuracy, majority.accuracy) == (None, None)
+    # Mean of (p - label)² over 9 questions. Jev: 0.04 + 0.36 + 0.04 + 0.01 + 0.16. Haiku: 0.02 + 0.05 + 0.37.
+    assert jev.brier == pytest.approx(0.61 / 9)
+    assert haiku.brier == pytest.approx(0.44 / 9)
+    # Only c2 has the same yes sectors in all 3 repeats.
+    assert haiku.agreement == pytest.approx(1 / 3)

@@ -82,8 +82,12 @@ class AnthropicClient:
         )
 
 
-def _scaled(node: Node, text: str) -> tuple[dict[str, float], bool]:
-    """Read the structured output and scale the probabilities to sum 1. Also return True if they needed it."""
+def _scaled(node: Node, text: str) -> tuple[dict[str, float], bool | None]:
+    """Read the structured output and scale the probabilities to sum 1. Also return True if they needed it.
+
+    A multi-label node has one yes/no question per option. The function does not scale its probabilities and
+    returns None for the flag.
+    """
     try:
         data = json.loads(text)
     except ValueError as error:
@@ -91,6 +95,10 @@ def _scaled(node: Node, text: str) -> tuple[dict[str, float], bool]:
     values = in_option_order(node, data, text)
     if any(not isinstance(v, int | float) or isinstance(v, bool) or v < 0 for v in values.values()):
         raise ArmResponseError(f"output has a probability that is not a number of 0 or more: {text[:ERROR_BODY_CHARS]}")
+    if node.multi_label:
+        if any(v > 1 for v in values.values()):
+            raise ArmResponseError(f"output has a probability over 1: {text[:ERROR_BODY_CHARS]}")
+        return {name: float(v) for name, v in values.items()}, None
     total = sum(values.values())
     if total <= 0:
         raise ArmResponseError("all probabilities are 0")

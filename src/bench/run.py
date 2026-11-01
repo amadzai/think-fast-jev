@@ -2,15 +2,14 @@
 
 import json
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, Protocol, TextIO
 
-from bench.arm import CALL_ERRORS, ArmClient, argmax, describe_error
+from bench.arm import CALL_ERRORS, ArmClient, argmax, describe_error, yes_options
 from bench.nodes import Node
-from bench.queries import Query
 
 WARMUP_CALLS = 3
 MAX_ATTEMPTS = 3
@@ -23,6 +22,18 @@ KEEP_WARM_STATE = "Keep-warm call. Not recorded."
 KEEP_WARM_ERROR_PREFIX = "keep-warm call: "
 
 type DecisionKey = tuple[str, str, str, int]
+
+
+class Item(Protocol):
+    """One input of a decision node: a query or a coin."""
+
+    @property
+    def id(self) -> str: ...
+
+    @property
+    def text(self) -> str:
+        """The state that every arm gets."""
+        ...
 
 
 class ResultsFileError(Exception):
@@ -41,7 +52,8 @@ class Decision:
     warmup: bool
     timestamp: str
     model_version: str | None = None
-    selected: str | None = None
+    # The selected option. For a multi-label node (coin sector), the list of options with yes.
+    selected: str | list[str] | None = None
     probabilities: dict[str, float] | None = None
     model_ms: float | None = None
     e2e_ms: float | None = None
@@ -85,16 +97,15 @@ class RunSummary:
     arms: dict[str, ArmSettings]
 
 
-def run_node(node: Node, queries: list[Query], clients: dict[str, ArmClient], out: Path) -> RunSummary:
-    """Call the arms for one reviewed query, then go to the next query. Skip decisions that have a success record in `out`."""
+def run_node(node: Node, items: Sequence[Item], clients: dict[str, ArmClient], out: Path) -> RunSummary:
+    """Call the arms for one item, then go to the next item. Skip decisions that have a success record in `out`."""
     started = datetime.now(UTC).isoformat()
     models_before = {arm: _models(client) for arm, client in clients.items()}
     done = _finished_keys(out)
-    reviewed = [q for q in queries if q.reviewed]
     # An arm's repeats stay together, so the arm order rotates by arm, not by call.
     todo = [
         (q, arm, repeat)
-        for i, q in enumerate(reviewed)
+        for i, q in enumerate(items)
         for arm in _rotated(list(clients), i)
         for repeat in range(FIRST_REPEAT, FIRST_REPEAT + clients[arm].config.repeats)
     ]
@@ -125,7 +136,7 @@ def run_node(node: Node, queries: list[Query], clients: dict[str, ArmClient], ou
     )
 
 
-def append_run_metadata(out: Path, summary: RunSummary, queries: Path, generators: list[str] | None = None) -> None:
+def append_run_metadata(out: Path, summary: RunSummary, items: Path, generators: list[str] | None = None) -> None:
     """Add one entry to `<out>.meta.json`, so a resumed run keeps the settings of the runs before it."""
     path = out.with_suffix(".meta.json")
     try:
@@ -133,7 +144,8 @@ def append_run_metadata(out: Path, summary: RunSummary, queries: Path, generator
     except (ValueError, KeyError, TypeError) as error:
         raise ResultsFileError(f"{path}: not a valid run metadata file ({error})") from error
     entry = asdict(summary) | {
-        "queries": str(queries),
+        # The query file or the coin file.
+        "items": str(items),
         # The models that wrote the generated queries in the query file.
         "generators": generators or [],
         "warmup_calls": WARMUP_CALLS,
@@ -143,16 +155,16 @@ def append_run_metadata(out: Path, summary: RunSummary, queries: Path, generator
 
 
 def _rotated(arms: list[str], index: int) -> list[str]:
-    # The arm order rotates from query to query, so that no arm always gets the call right after the same other arm.
+    # The arm order rotates from item to item, so that no arm always gets the call right after the same other arm.
     shift = index % len(arms)
     return arms[shift:] + arms[:shift]
 
 
-def _decisions(node: Node, pending: list[tuple[Query, str, int]], clients: dict[str, ArmClient]) -> Iterator[Decision]:
+def _decisions(node: Node, pending: list[tuple[Item, str, int]], clients: dict[str, ArmClient]) -> Iterator[Decision]:
     # Warm-up counts HTTP calls per arm in this process, retries included. A resumed run starts cold again.
     calls = dict.fromkeys(clients, 0)
-    for query, arm, repeat in pending:
-        decision, attempts = _decide(node, query, arm, repeat, clients[arm], calls[arm])
+    for item, arm, repeat in pending:
+        decision, attempts = _decide(node, item, arm, repeat, clients[arm], calls[arm])
         calls = calls | {arm: calls[arm] + attempts}
         yield decision
 
@@ -192,14 +204,14 @@ def _finished_keys(out: Path) -> set[DecisionKey]:
 
 
 def _decide(
-    node: Node, query: Query, arm: str, repeat: int, client: ArmClient, calls_before: int
+    node: Node, item: Item, arm: str, repeat: int, client: ArmClient, calls_before: int
 ) -> tuple[Decision, int]:
     """Return the decision and the number of HTTP calls it sent, keep-warm calls included."""
     base = Decision(
         arm=arm,
         model=client.config.model,
         node=node.name,
-        item_id=query.id,
+        item_id=item.id,
         repeat=repeat,
         warmup=calls_before < WARMUP_CALLS,
         timestamp=datetime.now(UTC).isoformat(),
@@ -213,7 +225,7 @@ def _decide(
                 calls, prefix = calls + 1, KEEP_WARM_ERROR_PREFIX
                 client.answer(node, KEEP_WARM_STATE)
             calls, prefix = calls + 1, ""
-            answer = client.answer(node, query.text)
+            answer = client.answer(node, item.text)
         except CALL_ERRORS as error:
             last_error = prefix + describe_error(error)
             if attempt < MAX_ATTEMPTS:
@@ -223,7 +235,7 @@ def _decide(
             base,
             warmup=calls_before + calls <= WARMUP_CALLS,
             model_version=answer.model_version,
-            selected=argmax(answer.probabilities),
+            selected=yes_options(answer.probabilities) if node.multi_label else argmax(answer.probabilities),
             probabilities=answer.probabilities,
             model_ms=answer.model_ms,
             e2e_ms=answer.e2e_ms,

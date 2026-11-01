@@ -15,6 +15,7 @@ DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai"
 # The generator is neither Claude nor Qwen. This model supports structured outputs on OpenRouter.
 DEFAULT_GENERATOR_MODEL = "google/gemini-3.8-flash"
 EXCLUDED_GENERATOR_FAMILIES = ("anthropic", "claude", "qwen")
+DEFAULT_COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3"
 
 
 @dataclass(frozen=True)
@@ -128,6 +129,21 @@ def generator_config() -> GeneratorConfig:
     return GeneratorConfig(
         base_url=os.environ.get("OPENROUTER_BASE_URL", DEFAULT_OPENROUTER_BASE_URL), api_key=api_key, model=model
     )
+
+
+@dataclass(frozen=True)
+class CoinGeckoConfig:
+    """Settings for the CoinGecko Demo API (`bench fetch`)."""
+
+    base_url: str
+    api_key: str
+
+
+def coingecko_config() -> CoinGeckoConfig:
+    api_key = os.environ.get("COINGECKO_API_KEY", "").strip()
+    if not api_key:
+        raise ConfigError("COINGECKO_API_KEY is not set. Add your Demo key to .env (get one at coingecko.com/en/api).")
+    return CoinGeckoConfig(base_url=os.environ.get("COINGECKO_BASE_URL", DEFAULT_COINGECKO_BASE_URL), api_key=api_key)
 
 
 def arm_configs() -> list[ArmConfig]:

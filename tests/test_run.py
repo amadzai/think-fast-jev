@@ -6,8 +6,9 @@ import httpx2
 import pytest
 
 from bench.anthropic_client import AnthropicClient
+from bench.coins import DESCRIPTION_MAX_CHARS, Coin
 from bench.config import ArmConfig
-from bench.nodes import ROUTER
+from bench.nodes import COIN_SECTOR, ROUTER
 from bench.queries import Query
 from bench.run import KEEP_WARM_ERROR_PREFIX, KEEP_WARM_STATE, append_run_metadata, run_node
 from bench.systemone import SystemOneClient
@@ -71,7 +72,6 @@ KEV_MODELS = {"models": [{"name": "kev-latest", "run": "jaredpalmer/kev-4b", "pr
 QUERIES = [
     Query(id="q1", text="What is the price of ETH?", router="price", guardrail="allow", source="seed", reviewed=True),
     Query(id="q2", text="BTC price in EUR", router="price", guardrail="allow", source="seed", reviewed=True),
-    Query(id="q3", text="SOL price?", router="price", guardrail="allow", source="generated", reviewed=False),
     Query(id="q4", text="ADA price now", router="price", guardrail="allow", source="seed", reviewed=True),
     Query(id="q5", text="Price of XRP", router="price", guardrail="allow", source="seed", reviewed=True),
 ]
@@ -90,7 +90,7 @@ def fake_system_one(recorded: dict, models: dict | None = None, seen: list | Non
     return httpx.MockTransport(handler)
 
 
-def test_router_run_writes_one_record_per_reviewed_query_and_rerun_skips_them(tmp_path: Path) -> None:
+def test_router_run_writes_one_record_per_query_and_rerun_skips_them(tmp_path: Path) -> None:
     # Arrange
     requests = []
     out = tmp_path / "router.jsonl"
@@ -201,14 +201,14 @@ def test_failed_keep_warm_call_counts_once_toward_warmup_and_is_labelled(
     assert records[1]["error"].startswith(KEEP_WARM_ERROR_PREFIX)
 
 
-def fake_anthropic(seen: list) -> httpx2.MockTransport:
-    """Answer POST /v1/messages with HAIKU_RECORDED and GET /v1/models/<id> with HAIKU_MODEL."""
+def fake_anthropic(seen: list, recorded: dict = HAIKU_RECORDED) -> httpx2.MockTransport:
+    """Answer POST /v1/messages with `recorded` and GET /v1/models/<id> with HAIKU_MODEL."""
 
     def handler(request: httpx2.Request) -> httpx2.Response:
         if request.method == "GET":
             return httpx2.Response(200, json=HAIKU_MODEL)
         seen.append(json.loads(request.content))
-        return httpx2.Response(200, json=HAIKU_RECORDED, headers={"server-timing": "x-originResponse;dur=1250"})
+        return httpx2.Response(200, json=recorded, headers={"server-timing": "x-originResponse;dur=1250"})
 
     return httpx2.MockTransport(handler)
 
@@ -255,3 +255,55 @@ def test_haiku_runs_three_repeats_per_query_with_normalised_probabilities(tmp_pa
     haiku_meta = json.loads(out.with_suffix(".meta.json").read_text())["runs"][0]["arms"]["haiku"]
     assert haiku_meta["request_settings"]["thinking"] == {"type": "disabled"}
     assert haiku_meta["models_before"]["created_at"] == "2026-09-01T00:00:00Z"
+
+
+COIN = Coin(
+    id="ethereum",
+    name="Ethereum",
+    symbol="eth",
+    description='Ethereum is a <a href="https://example.test">smart contract platform</a>.\r\n' + "More text. " * 200,
+    categories=("Smart Contract Platform", "Layer 1 (L1)"),
+)
+# The probabilities do not sum to 1, because each sector is its own yes/no question.
+SECTOR_PROBABILITIES = {name: 0.1 for name in COIN_SECTOR.options} | {"layer_1": 0.9, "smart_contract_platform": 0.5}
+# The shape of a System One response with noul questions: one answer per sector, `noul` is the probability of yes.
+JEV_SECTORS = {
+    "model": "jev-1.14.0",
+    "usage": {"input_tokens": 900, "output_tokens": 0},
+    "answers": {name: {"type": "noul", "noul": p} for name, p in SECTOR_PROBABILITIES.items()},
+}
+HAIKU_SECTORS = HAIKU_RECORDED | {"content": [{"type": "text", "text": json.dumps(SECTOR_PROBABILITIES)}]}
+
+
+def test_coin_sector_run_asks_every_sector_in_one_call_and_keeps_probabilities_unscaled(tmp_path: Path) -> None:
+    # Arrange
+    jev_requests: list = []
+    haiku_requests: list = []
+    out = tmp_path / "coin_sector.jsonl"
+
+    # Act
+    with (
+        SystemOneClient(JEV, transport=fake_system_one(JEV_SECTORS, seen=jev_requests)) as jev,
+        AnthropicClient(HAIKU, transport=fake_anthropic(haiku_requests, HAIKU_SECTORS)) as haiku,
+    ):
+        run_node(COIN_SECTOR, [COIN], {"jev": jev, "haiku": haiku}, out)
+
+    # Assert
+    assert len(jev_requests) == 1
+    assert len(haiku_requests) == 3
+    questions = jev_requests[0]["questions"]
+    assert list(questions) == list(COIN_SECTOR.options)
+    assert {q["type"] for q in questions.values()} == {"noul"}
+    state = jev_requests[0]["state"]
+    assert state.startswith("Name: Ethereum\nSymbol: ETH\nDescription: Ethereum is a smart contract platform. More")
+    assert "<a" not in state
+    assert len(state.split("Description: ")[1]) <= DESCRIPTION_MAX_CHARS
+    assert haiku_requests[0]["messages"] == [{"role": "user", "content": state}]
+    assert haiku_requests[0]["output_config"]["format"]["schema"]["required"] == list(COIN_SECTOR.options)
+    records = [json.loads(line) for line in out.read_text().splitlines()]
+    assert [(r["arm"], r["repeat"]) for r in records] == [("jev", 1), ("haiku", 1), ("haiku", 2), ("haiku", 3)]
+    for record in records:
+        assert record["probabilities"] == pytest.approx(SECTOR_PROBABILITIES)
+        # Yes at 0.5 for every arm, in the node's option order.
+        assert record["selected"] == ["layer_1", "smart_contract_platform"]
+    assert records[1]["normalised"] is None

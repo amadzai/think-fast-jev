@@ -11,8 +11,17 @@ class Node:
     instructions: str
     # Option name to one-line description. The order is fixed and the same for every arm.
     options: dict[str, str]
+    # True: the node asks one yes/no question per option. The probabilities do not sum to 1. `question_id` is not used.
+    multi_label: bool = False
 
     def system_one_questions(self) -> dict[str, dict[str, Any]]:
+        if self.multi_label:
+            # All questions for one item go in one request.
+            return {
+                # The text has the option name, because the chat prompt shows it too.
+                name: {"type": "noul", "instructions": f"{self.instructions} {name}: {description}"}
+                for name, description in self.options.items()
+            }
         return {
             self.question_id: {
                 "type": "choice",
@@ -24,6 +33,12 @@ class Node:
     def chat_system_prompt(self) -> str:
         """Return the system prompt for a chat arm. It has the same instructions and options as the System One request."""
         options = "\n".join(f"- {name}: {description}" for name, description in self.options.items())
+        if self.multi_label:
+            return (
+                f"{self.instructions}\n\nOptions:\n{options}\n\n"
+                "For each option, return the probability from 0 to 1 that the answer is yes. "
+                "Each option is a separate question, so the probabilities do not sum to 1."
+            )
         return (
             f"{self.instructions}\n\nOptions:\n{options}\n\n"
             "Return a probability from 0 to 1 for each option. The probabilities sum to 1."
@@ -79,4 +94,49 @@ GUARDRAIL = Node(
     },
 )
 
-NODES = {node.name: node for node in [ROUTER, GUARDRAIL]}
+
+@dataclass(frozen=True)
+class Sector:
+    description: str
+    # The CoinGecko categories that make a coin a yes for this sector. Only scoring uses them. The arms never see them.
+    categories: tuple[str, ...]
+
+
+# Broad sectors with reliable CoinGecko tags. `bench fetch` prints the number of coins per sector.
+SECTORS = {
+    "layer_1": Sector("A base blockchain with its own validators or miners.", ("Layer 1 (L1)",)),
+    "layer_2": Sector("A network that runs on top of a base blockchain to scale it.", ("Layer 2 (L2)",)),
+    "smart_contract_platform": Sector(
+        "A blockchain that runs programs (smart contracts) for applications.", ("Smart Contract Platform",)
+    ),
+    "defi": Sector("Financial services that run on a blockchain without a bank.", ("Decentralized Finance (DeFi)",)),
+    "dex": Sector("An exchange where users trade tokens from their own wallets.", ("Decentralized Exchange (DEX)",)),
+    "lending": Sector("A protocol where users lend or borrow crypto.", ("Lending/Borrowing Protocols",)),
+    "liquid_staking": Sector(
+        "Staking that gives the user a token that they can trade while it is staked.", ("Liquid Staking",)
+    ),
+    "stablecoin": Sector("A token with a value that is fixed to a currency or an asset.", ("Stablecoins",)),
+    "wrapped": Sector("A token that represents another coin on a different blockchain.", ("Wrapped-Tokens",)),
+    "exchange_token": Sector(
+        "The token of a centralised exchange.", ("Exchange-based Tokens", "Centralized Exchange (CEX) Token")
+    ),
+    "meme": Sector("A coin based on a joke, a meme or internet culture.", ("Meme",)),
+    "ai": Sector("A project about artificial intelligence or AI agents.", ("Artificial Intelligence (AI)",)),
+    "gaming": Sector("Blockchain games or a platform for blockchain games.", ("Gaming (GameFi)",)),
+    "rwa": Sector("Tokens for real-world assets such as bonds, property or commodities.", ("Real World Assets (RWA)",)),
+    "oracle": Sector("A service that brings data from outside into smart contracts.", ("Oracle",)),
+    "privacy": Sector("A coin that hides the sender, the receiver or the amount.", ("Privacy Coins",)),
+    "depin": Sector("A network of physical devices or hardware that users run for rewards.", ("DePIN",)),
+    "infrastructure": Sector("Tools and services that other blockchain projects build on.", ("Infrastructure",)),
+    "zero_knowledge": Sector("A project that uses zero-knowledge proofs.", ("Zero Knowledge (ZK)",)),
+}
+
+COIN_SECTOR = Node(
+    name="coin_sector",
+    question_id="sector",
+    instructions="The state describes one crypto coin. Does the coin belong to this sector?",
+    options={name: sector.description for name, sector in SECTORS.items()},
+    multi_label=True,
+)
+
+NODES = {node.name: node for node in [ROUTER, GUARDRAIL, COIN_SECTOR]}

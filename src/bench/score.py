@@ -22,10 +22,15 @@ class Score:
     arm: str
     # The number of items in the quality scores: items that every arm answered validly in every repeat.
     items: int
-    accuracy: float | None
-    # Multi-class Brier score of the first repeat: 0 is perfect, 2 is the worst.
+    # Router and guardrail.
+    accuracy: float | None = None
+    # Coin sector: the mean F1 over the sectors, yes at 0.5.
+    macro_f1: float | None = None
+    # Brier score of the first repeat. 0 is perfect. Router and guardrail: multi-class, 2 is the worst.
+    # Coin sector: the binary score per sector question, 1 is the worst.
     brier: float | None = None
-    # The share of items where all repeats selected the same option. Only for arms with more than one repeat.
+    # The share of items where all repeats selected the same option (coin sector: the same sectors). Only for arms
+    # with more than one repeat.
     agreement: float | None = None
     model_p50: float | None = None
     model_p95: float | None = None
@@ -36,33 +41,68 @@ class Score:
     error_rate: float | None = None
 
 
+@dataclass(frozen=True)
+class _Scored:
+    """The records of one node, and the repeat groups of the items that every arm answered validly."""
+
+    arms: list[str]
+    repeats: dict[str, int]
+    # Arm to one list of repeat records per scored item, in the same item order for every arm.
+    groups: dict[str, list[list[Decision]]]
+    # Arm to all its latest records, also the errors and the items outside the quality scores.
+    records: dict[str, list[Decision]]
+
+
 def score_node(node: str, records: list[Decision], labels: dict[str, str], prices: dict[str, Price]) -> list[Score]:
     """Return one row per arm. An arm with more than one repeat also gets a majority-vote row."""
-    # A rerun appends a new record for the same key. The last record wins.
-    latest = list({r.key: r for r in records if r.node == node}.values())
-    arms = list(dict.fromkeys(r.arm for r in latest))
-    repeats = {arm: max(r.repeat for r in latest if r.arm == arm) for arm in arms}
-    valid = {r.key: r for r in latest if r.error is None and r.probabilities is not None}
-
-    def repeats_of(item: str, arm: str) -> list[Decision]:
-        # Empty unless every repeat of the item has a valid record.
-        keys = [(node, item, arm, repeat) for repeat in range(FIRST_REPEAT, FIRST_REPEAT + repeats[arm])]
-        return [valid[key] for key in keys] if all(key in valid for key in keys) else []
-
-    candidates = [item for item in dict.fromkeys(r.item_id for r in latest) if item in labels]
-    answered = {item: {arm: repeats_of(item, arm) for arm in arms} for item in candidates}
-    items = [item for item in candidates if all(answered[item].values())]
+    scored = _scored(node, records, labels.keys())
     rows = []
-    for arm in arms:
-        arm_repeats = [answered[item][arm] for item in items]
-        arm_records = [r for r in latest if r.arm == arm]
-        price = prices.get(arm_records[0].model)
-        rows.append(_arm_score(node, arm, arm_repeats, arm_records, labels, price))
-        if repeats[arm] > 1:
-            majority = _mean(_majority(group) == labels[group[0].item_id] for group in arm_repeats)
-            rows.append(
-                Score(node=node, arm=f"{arm} (majority of {repeats[arm]})", items=len(items), accuracy=majority)
+    for arm in scored.arms:
+        groups = scored.groups[arm]
+        firsts = [group[0] for group in groups]
+        rows.append(
+            _arm_score(
+                node,
+                arm,
+                scored,
+                prices,
+                accuracy=_mean(r.selected == labels[r.item_id] for r in firsts),
+                brier=_mean(_brier(r, frozenset({labels[r.item_id]})) for r in firsts),
             )
+        )
+        if scored.repeats[arm] > 1:
+            majority = _mean(_majority(group) == labels[group[0].item_id] for group in groups)
+            rows.append(_majority_row(node, arm, scored, accuracy=majority))
+    return rows
+
+
+def score_sectors(
+    node: str, records: list[Decision], labels: dict[str, frozenset[str]], sectors: list[str], prices: dict[str, Price]
+) -> list[Score]:
+    """Return one row per arm for a multi-label node. An arm with more than one repeat also gets a majority-vote row.
+
+    The majority vote is per sector question: yes when more than half of the repeats say yes.
+    """
+    scored = _scored(node, records, labels.keys())
+    rows = []
+    for arm in scored.arms:
+        groups = scored.groups[arm]
+        firsts = [group[0] for group in groups]
+        first_yes = [(set(r.selected or []), labels[r.item_id]) for r in firsts]
+        rows.append(
+            _arm_score(
+                node,
+                arm,
+                scored,
+                prices,
+                macro_f1=_macro_f1(first_yes, sectors),
+                # The mean per sector question, so that the score does not grow with the number of sectors.
+                brier=_mean(_brier(r, labels[r.item_id]) / len(sectors) for r in firsts),
+            )
+        )
+        if scored.repeats[arm] > 1:
+            majority = [(_majority_yes(group, sectors), labels[group[0].item_id]) for group in groups]
+            rows.append(_majority_row(node, arm, scored, macro_f1=_macro_f1(majority, sectors)))
     return rows
 
 
@@ -84,17 +124,43 @@ def write_scores(rows: list[Score], stem: Path) -> str:
     return markdown
 
 
+def _scored(node: str, records: list[Decision], labelled: Iterable[str]) -> _Scored:
+    # A rerun appends a new record for the same key. The last record wins.
+    latest = list({r.key: r for r in records if r.node == node}.values())
+    arms = list(dict.fromkeys(r.arm for r in latest))
+    repeats = {arm: max(r.repeat for r in latest if r.arm == arm) for arm in arms}
+    valid = {r.key: r for r in latest if r.error is None and r.probabilities is not None}
+
+    def repeats_of(item: str, arm: str) -> list[Decision]:
+        # Empty unless every repeat of the item has a valid record.
+        keys = [(node, item, arm, repeat) for repeat in range(FIRST_REPEAT, FIRST_REPEAT + repeats[arm])]
+        return [valid[key] for key in keys] if all(key in valid for key in keys) else []
+
+    labelled_items = set(labelled)
+    candidates = [item for item in dict.fromkeys(r.item_id for r in latest) if item in labelled_items]
+    answered = {item: {arm: repeats_of(item, arm) for arm in arms} for item in candidates}
+    items = [item for item in candidates if all(answered[item].values())]
+    return _Scored(
+        arms=arms,
+        repeats=repeats,
+        groups={arm: [answered[item][arm] for item in items] for arm in arms},
+        records={arm: [r for r in latest if r.arm == arm] for arm in arms},
+    )
+
+
 def _arm_score(
     node: str,
     arm: str,
-    repeats: list[list[Decision]],
-    records: list[Decision],
-    labels: dict[str, str],
-    price: Price | None,
+    scored: _Scored,
+    prices: dict[str, Price],
+    accuracy: float | None = None,
+    macro_f1: float | None = None,
+    brier: float | None = None,
 ) -> Score:
-    # The main quality scores use the first repeat only, so an arm with repeats gets no voting advantage.
-    firsts = [group[0] for group in repeats]
-    has_repeats = any(len(group) > 1 for group in repeats)
+    # The quality scores use the first repeat only, so an arm with repeats gets no voting advantage.
+    groups, records = scored.groups[arm], scored.records[arm]
+    price = prices.get(records[0].model)
+    has_repeats = scored.repeats[arm] > 1
     # Latency uses every valid call that is not warm-up, also from items outside the quality scores.
     calls = [r for r in records if r.error is None and not r.warmup]
     model = [r.model_ms for r in calls if r.model_ms is not None]
@@ -103,10 +169,13 @@ def _arm_score(
     return Score(
         node=node,
         arm=arm,
-        items=len(repeats),
-        accuracy=_mean(r.selected == labels[r.item_id] for r in firsts),
-        brier=_mean(_brier(r, labels[r.item_id]) for r in firsts),
-        agreement=_mean(len({r.selected for r in group}) == 1 for group in repeats) if has_repeats else None,
+        items=len(groups),
+        accuracy=accuracy,
+        macro_f1=macro_f1,
+        brier=brier,
+        agreement=_mean(all(r.selected == group[0].selected for r in group) for group in groups)
+        if has_repeats
+        else None,
         model_p50=_percentile(model, 50),
         model_p95=_percentile(model, 95),
         e2e_p50=_percentile(e2e, 50),
@@ -116,14 +185,46 @@ def _arm_score(
     )
 
 
-def _majority(group: list[Decision]) -> str | None:
+def _majority_row(
+    node: str, arm: str, scored: _Scored, accuracy: float | None = None, macro_f1: float | None = None
+) -> Score:
+    return Score(
+        node=node,
+        arm=f"{arm} (majority of {scored.repeats[arm]})",
+        items=len(scored.groups[arm]),
+        accuracy=accuracy,
+        macro_f1=macro_f1,
+    )
+
+
+def _majority(group: list[Decision]) -> str | list[str] | None:
     # On a tie, Counter keeps the first option it saw, which is the answer of the first repeat.
     return Counter(r.selected for r in group).most_common(1)[0][0]
 
 
-def _brier(record: Decision, label: str) -> float:
+def _majority_yes(group: list[Decision], sectors: list[str]) -> set[str]:
+    return {s for s in sectors if sum(s in (r.selected or []) for r in group) * 2 > len(group)}
+
+
+def _macro_f1(predictions: list[tuple[set[str], frozenset[str]]], sectors: list[str]) -> float | None:
+    """Return the mean F1 over the sectors. Each prediction is (the yes sectors, the label sectors) of one item.
+
+    A sector with no label yes and no predicted yes has no F1, so it is left out of the mean.
+    """
+    scores = []
+    for s in sectors:
+        true_yes = sum(s in yes and s in label for yes, label in predictions)
+        false_yes = sum(s in yes and s not in label for yes, label in predictions)
+        false_no = sum(s not in yes and s in label for yes, label in predictions)
+        if true_yes + false_yes + false_no:
+            scores.append(2 * true_yes / (2 * true_yes + false_yes + false_no))
+    return _mean(scores)
+
+
+def _brier(record: Decision, label: frozenset[str]) -> float:
+    """Return the sum of (p - 1)² over the label options and p² over the other options."""
     probabilities = record.probabilities or {}
-    return sum((p - (option == label)) ** 2 for option, p in probabilities.items())
+    return sum((p - (option in label)) ** 2 for option, p in probabilities.items())
 
 
 def _cost(record: Decision, price: Price) -> float:
