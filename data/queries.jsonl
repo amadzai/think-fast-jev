@@ -5,3 +5,7 @@
 {"id": "seed-005", "text": "Should I sell my Dogecoin to pay off my car loan?", "router": "unsupported", "guardrail": "advice", "source": "seed", "reviewed": true}
 {"id": "seed-006", "text": "Which exchanges can I buy PEPE on, and which pair has the most volume?", "router": "tickers", "guardrail": "allow", "source": "seed", "reviewed": true}
 {"id": "seed-007", "text": "What time does the Arsenal vs Chelsea match start on Saturday?", "router": "unsupported", "guardrail": "off_topic", "source": "seed", "reviewed": true}
+{"id": "gen-001", "text": "how much is 1 solana in eur atm", "router": "price", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-002", "text": "cardano current price in aud please", "router": "price", "guardrail": "allow", "source": "generated", "reviewed": false}
+{"id": "gen-003", "text": "is it a good idea to dump my cardano now to cover rent this month?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": true}
+{"id": "gen-004", "text": "should i buy more solana today or wait for it to dip further?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": false}
