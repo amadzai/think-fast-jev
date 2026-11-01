@@ -9,7 +9,8 @@ from dotenv import find_dotenv, load_dotenv
 
 from bench.anthropic_client import AnthropicClient
 from bench.arm import CALL_ERRORS, UNREACHABLE_ERRORS, ArmClient, argmax, describe_error
-from bench.config import PRICES, ArmConfig, ConfigError, arm_configs
+from bench.config import PRICES, ArmConfig, ConfigError, arm_configs, generator_config
+from bench.generate import append_generation_metadata, append_queries, generate_variations, load_generations
 from bench.nodes import NODES, Node
 from bench.queries import QueryFileError, load_queries
 from bench.run import ResultsFileError, append_run_metadata, load_records, run_node
@@ -98,15 +99,18 @@ def run(
     try:
         configs = arm_configs()
         items = load_queries(queries)
+        generators = sorted({g["model"] for g in load_generations(queries)})
     except (ConfigError, QueryFileError, OSError) as error:
         raise fail(str(error))
+    unreviewed = sum(not q.reviewed for q in items)
+    typer.echo(f"queries: {len(items) - unreviewed} reviewed, {unreviewed} not reviewed (skipped)")
 
     try:
         with ExitStack() as stack:
             clients = {c.name: stack.enter_context(_client(c)) for c in configs}
             _require_reachable(clients)
             summary = run_node(definition, items, clients, out)
-        append_run_metadata(out, summary, queries)
+        append_run_metadata(out, summary, queries, generators)
     except (ResultsFileError, OSError) as error:
         raise fail(str(error))
     typer.echo(f"{out}: {summary.written} written ({summary.errors} errors), {summary.skipped} skipped")
@@ -120,6 +124,46 @@ def _require_reachable(clients: dict[str, ArmClient]) -> None:
         except CALL_ERRORS as error:
             raise fail(_arm_error(client.config, error))
     typer.echo(f"arms: {', '.join(clients)}")
+
+
+@app.command()
+def generate(
+    seed_ids: Annotated[
+        list[str] | None,
+        typer.Option("--seed", help="A seed query ID. Repeat the option for more seeds. Default: all seeds."),
+    ] = None,
+    per_seed: Annotated[int, typer.Option(min=1, help="The number of variations for each seed.")] = 2,
+    queries: Annotated[Path, typer.Option(help="The query file (JSONL).")] = Path("data/queries.jsonl"),
+) -> None:
+    """Write query variations from the seeds and add them to the query file, not reviewed.
+
+    A second run on the same seeds adds more variations. It does not replace the first ones.
+    """
+    try:
+        config = generator_config()
+        existing = load_queries(queries)
+        # Read before the paid calls, so that a damaged metadata file stops the command early.
+        previous = load_generations(queries)
+    except (ConfigError, QueryFileError, OSError) as error:
+        raise fail(str(error))
+    # Generated labels start from the seed labels, so only reviewed seeds count.
+    seeds = [q for q in existing if q.source == "seed" and q.reviewed and (not seed_ids or q.id in seed_ids)]
+    unknown = sorted(set(seed_ids or []) - {q.id for q in seeds})
+    if unknown:
+        raise fail(f"no reviewed seed query with ID {unknown[0]!r} in {queries}.")
+    typer.echo(f"{config.model}: {len(seeds)} seeds, {per_seed} variations each")
+    result = generate_variations(config, seeds, existing, per_seed)
+    try:
+        append_queries(queries, result.queries)
+        append_generation_metadata(queries, previous, config, seeds, result)
+    except OSError as error:
+        raise fail(str(error))
+    unsupported = sum(q.router == "unsupported" for q in result.queries)
+    typer.echo(
+        f"{queries}: {len(result.queries)} added (not reviewed, {unsupported} unsupported), {result.dropped} dropped"
+    )
+    if result.error:
+        raise fail(f"stopped at seed {result.error}")
 
 
 @app.command()

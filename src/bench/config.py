@@ -11,6 +11,10 @@ DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com"
 DEFAULT_HAIKU_MODEL = "claude-haiku-5-5"
 # Haiku has no logprobs and no temperature setting, so each item runs 3 times to measure agreement.
 HAIKU_REPEATS = 3
+DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai"
+# The generator is neither Claude nor Qwen. This model supports structured outputs on OpenRouter.
+DEFAULT_GENERATOR_MODEL = "google/gemini-3.8-flash"
+EXCLUDED_GENERATOR_FAMILIES = ("anthropic", "claude", "qwen")
 
 
 @dataclass(frozen=True)
@@ -101,6 +105,28 @@ def haiku_config() -> ArmConfig:
         api_key=api_key,
         model=os.environ.get("HAIKU_MODEL", DEFAULT_HAIKU_MODEL),
         repeats=HAIKU_REPEATS,
+    )
+
+
+@dataclass(frozen=True)
+class GeneratorConfig:
+    """Settings for the model that writes query variations (`bench generate`)."""
+
+    base_url: str
+    api_key: str
+    model: str
+
+
+def generator_config() -> GeneratorConfig:
+    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if not api_key:
+        raise ConfigError("OPENROUTER_API_KEY is not set. Add it to .env (get a key at openrouter.ai).")
+    model = os.environ.get("GENERATOR_MODEL", "").strip() or DEFAULT_GENERATOR_MODEL
+    # Claude phrasing could favour Haiku, and Qwen phrasing could favour the Qwen-based Jev and Kev.
+    if any(family in model.lower() for family in EXCLUDED_GENERATOR_FAMILIES):
+        raise ConfigError(f"GENERATOR_MODEL {model!r} is a Claude or Qwen model. Use a model of another family.")
+    return GeneratorConfig(
+        base_url=os.environ.get("OPENROUTER_BASE_URL", DEFAULT_OPENROUTER_BASE_URL), api_key=api_key, model=model
     )
 
 

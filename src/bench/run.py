@@ -125,14 +125,20 @@ def run_node(node: Node, queries: list[Query], clients: dict[str, ArmClient], ou
     )
 
 
-def append_run_metadata(out: Path, summary: RunSummary, queries: Path) -> None:
+def append_run_metadata(out: Path, summary: RunSummary, queries: Path, generators: list[str] | None = None) -> None:
     """Add one entry to `<out>.meta.json`, so a resumed run keeps the settings of the runs before it."""
     path = out.with_suffix(".meta.json")
     try:
         runs = json.loads(path.read_text())["runs"] if path.exists() else []
     except (ValueError, KeyError, TypeError) as error:
         raise ResultsFileError(f"{path}: not a valid run metadata file ({error})") from error
-    entry = asdict(summary) | {"queries": str(queries), "warmup_calls": WARMUP_CALLS, "max_attempts": MAX_ATTEMPTS}
+    entry = asdict(summary) | {
+        "queries": str(queries),
+        # The models that wrote the generated queries in the query file.
+        "generators": generators or [],
+        "warmup_calls": WARMUP_CALLS,
+        "max_attempts": MAX_ATTEMPTS,
+    }
     path.write_text(json.dumps({"runs": [*runs, entry]}, indent=2) + "\n")
 
 
