@@ -34,7 +34,7 @@ _Avoid_: Filter, moderation, safety check
 
 **Coin sector**:
 The decision node that decides which sectors a coin belongs to.
-_Avoid_: Category tagging, classification
+_Avoid_: Classification
 
 **Unsupported**:
 The router option for a question that no data tool can answer.
