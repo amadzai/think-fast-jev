@@ -125,9 +125,13 @@ def score(
     out: Annotated[Path, typer.Option(help="Writes <out>.csv and <out>.md.")] = Path("results/scores"),
 ) -> None:
     """Score the results files against the labels and write the metrics table."""
+    paths = results or [Path("results/router.jsonl")]
+    missing = [path for path in paths if not path.exists()]
+    if missing:
+        raise fail(f"{missing[0]}: file not found. Pass the results file of `bench run --out` as an argument.")
     try:
         items = load_queries(queries, ROUTER.options)
-        records = [record for path in results or [Path("results/router.jsonl")] for record in load_records(path)]
+        records = [record for path in paths for record in load_records(path)]
     except (QueryFileError, ResultsFileError, OSError) as error:
         raise fail(str(error))
     labels = {"router": {q.id: q.router for q in items}, "guardrail": {q.id: q.guardrail for q in items}}
