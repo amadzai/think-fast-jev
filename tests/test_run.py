@@ -313,49 +313,37 @@ def test_coin_sector_run_asks_every_sector_in_one_call_and_keeps_probabilities_u
     assert records[1]["normalised"] is None
 
 
-# The shape of a Kev /v1/systemone/permute response. The first run has the node's option order.
-PERMUTED = {
-    "runs": [
-        {"order": list(ROUTER.options), "probabilities": PROBABILITIES, "choice": "price", "latency_ms": 21.0},
-        {
-            "order": list(reversed(ROUTER.options)),
-            "probabilities": PROBABILITIES,
-            "choice": "market_chart",
-            "latency_ms": 22.0,
-        },
-    ],
-    "argmax_stable": False,
-    "spread": {name: 0.0 for name in ROUTER.options} | {"price": 0.3, "market_chart": 0.3},
-}
-
-
-def test_kev_permute_pass_records_stability_and_spread_and_rerun_skips_them(tmp_path: Path) -> None:
-    # Arrange
-    paths: list = []
-    requests: list = []
+def test_permute_pass_asks_jev_under_shuffled_option_orders_and_rerun_skips_finished_items(tmp_path: Path) -> None:
+    # Arrange: Jev selects price when price is the first option, and market_chart for every other order.
+    orders: list = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        paths.append(request.url.path)
-        requests.append(json.loads(request.content))
-        return httpx.Response(200, json=PERMUTED)
+        body = json.loads(request.content)
+        order = list(body["questions"]["route"]["criteria"])
+        orders.append((body["state"], order))
+        price = 0.9 if order[0] == "price" else 0.3
+        answer = {name: 0.0 for name in ROUTER.options} | {"price": price, "market_chart": round(1 - price, 10)}
+        return httpx.Response(200, json=RECORDED | {"answers": {"route": {"probabilities": answer}}})
 
     out = tmp_path / "router.permute.jsonl"
 
     # Act
     for _ in range(2):
-        with SystemOneClient(KEV, transport=httpx.MockTransport(handler)) as kev:
-            permute_node(ROUTER, QUERIES[:2], kev, out, n_perm=2)
+        with SystemOneClient(JEV, transport=httpx.MockTransport(handler)) as jev:
+            permute_node(ROUTER, QUERIES[:2], jev, out, n_perm=3)
 
-    # Assert
-    assert paths == ["/v1/systemone/permute"] * 2
-    assert requests[0]["request"]["state"] == "What is the price of ETH?"
-    assert requests[0]["request"]["questions"] == ROUTER.system_one_questions()
-    assert (requests[0]["question"], requests[0]["n_perm"]) == ("route", 2)
+    # Assert: 3 orders per item, and the rerun sends nothing.
+    assert [state for state, _ in orders] == ["What is the price of ETH?"] * 3 + ["BTC price in EUR"] * 3
+    first, *shuffled = [order for _, order in orders[:3]]
+    assert first == list(ROUTER.options)
+    assert all(sorted(order) == sorted(ROUTER.options) and order != first for order in shuffled)
+    # The same seed gives the same orders for every item and every arm.
+    assert [order for _, order in orders[3:]] == [order for _, order in orders[:3]]
     records = [json.loads(line) for line in out.read_text().splitlines()]
-    assert [(r["arm"], r["node"], r["item_id"]) for r in records] == [("kev", "router", "q1"), ("kev", "router", "q2")]
+    assert [(r["arm"], r["node"], r["item_id"]) for r in records] == [("jev", "router", "q1"), ("jev", "router", "q2")]
     assert records[0]["stable"] is False
-    assert records[0]["spread"]["price"] == 0.3
-    assert [run["choice"] for run in records[0]["runs"]] == ["price", "market_chart"]
+    assert records[0]["spread"]["price"] == pytest.approx(0.6)
+    assert [run["choice"] for run in records[0]["runs"]] == ["price", "market_chart", "market_chart"]
     assert records[0]["error"] is None
 
 

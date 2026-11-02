@@ -21,6 +21,7 @@ from bench.config import (
     arm_configs,
     coingecko_config,
     generator_config,
+    jev_config,
     kev_config,
 )
 from bench.fetch import MARKETS_PER_PAGE_MAX, FetchError, fetch_coins
@@ -37,7 +38,7 @@ from bench.run import (
     read_metadata,
     run_node,
 )
-from bench.score import Score, score_node, score_sectors, with_kev_scores, write_scores
+from bench.score import Score, score_node, score_sectors, with_order_scores, with_self_hosted_cost, write_scores
 from bench.systemone import MAX_CONNECTIONS, SystemOneClient
 from bench.throughput import measure_throughput
 
@@ -189,24 +190,29 @@ def permute(
         int, typer.Option(min=2, max=MAX_PERMUTATIONS, help="The number of option orders.")
     ] = PERMUTATIONS,
 ) -> None:
-    """Ask Kev each reviewed query under several option orders. A rerun skips finished queries."""
+    """Ask Jev and Kev each reviewed query under several option orders. A rerun skips finished queries.
+
+    Each option order is one call. Kev is in the pass when KEV_BASE_URL is set.
+    """
     choice_nodes = [name for name, definition in NODES.items() if not definition.multi_label]
     if node not in choice_nodes:
         raise fail(f"node {node!r} has no choice question. Use one of: {', '.join(choice_nodes)}.")
     definition = NODES[node]
     out = permutation_path(results or _default_results(node))
-    config = _require_kev_config()
     try:
+        configs = [c for c in (jev_config(), kev_config()) if c is not None]
         items, _, _ = _items(definition, queries, COINS_PATH)
-    except (QueryFileError, OSError) as error:
+    except (ConfigError, QueryFileError, OSError) as error:
         raise fail(str(error))
     try:
-        with SystemOneClient(config) as client:
-            _require_reachable({config.name: client})
-            written, errors, skipped = permute_node(definition, items, client, out, n_perm)
+        with ExitStack() as stack:
+            clients: dict[str, ArmClient] = {c.name: stack.enter_context(SystemOneClient(c)) for c in configs}
+            _require_reachable(clients)
+            for arm, client in clients.items():
+                written, errors, skipped = permute_node(definition, items, client, out, n_perm)
+                typer.echo(f"{arm} {out}: {written} written ({errors} errors), {skipped} skipped")
     except (ResultsFileError, OSError) as error:
         raise fail(str(error))
-    typer.echo(f"{out}: {written} written ({errors} errors), {skipped} skipped")
 
 
 @app.command()
@@ -378,7 +384,8 @@ def score(
         else:
             rows = score_node(node, records, labels[node], PRICES)
         has_kev = any(r.node == node and r.arm == KEV_ARM for r in records)
-        return with_kev_scores(rows, KEV_ARM, permutations, _decisions_per_hour(node, throughputs, has_kev))
+        rows = with_order_scores(rows, permutations)
+        return with_self_hosted_cost(rows, KEV_ARM, _decisions_per_hour(node, throughputs, has_kev))
 
     rows = [row for node in nodes for row in rows_of(node)]
     try:
@@ -389,7 +396,7 @@ def score(
 
 
 def _kev_data(paths: list[Path]) -> tuple[list[Permutation], list[dict[str, Any]]]:
-    """Return Kev's permutation records and throughput entries that belong to the results files."""
+    """Return the permutation records and Kev's throughput entries that belong to the results files."""
     try:
         permutations = [p for path in paths for p in load_permutations(permutation_path(path))]
         throughputs = [t for path in paths for t in read_metadata(path, "throughput") if t.get("arm") == KEV_ARM]

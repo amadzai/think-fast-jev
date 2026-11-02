@@ -33,9 +33,10 @@ class Score:
     # The share of items where all repeats selected the same option (coin sector: the same sectors). Only for arms
     # with more than one repeat.
     agreement: float | None = None
-    # Kev, router and guardrail (`bench permute`): the share of items where every option order selects the same option.
+    # Jev and Kev, router and guardrail (`bench permute`): the share of items where every option order selects the
+    # same option.
     order_stable: float | None = None
-    # Kev: the mean over the items of the largest probability change of one option between the option orders.
+    # Jev and Kev: the mean over the items of the largest probability change of one option between the option orders.
     order_spread: float | None = None
     model_p50: float | None = None
     model_p95: float | None = None
@@ -112,32 +113,33 @@ def score_sectors(
     return rows
 
 
-def with_kev_scores(
-    rows: list[Score],
-    arm: str,
-    permutations: list[Permutation],
-    decisions_per_hour: float | None,
-) -> list[Score]:
-    """Add the option-order stability and the self-hosted cost to the rows of `arm`.
+def with_order_scores(rows: list[Score], permutations: list[Permutation]) -> list[Score]:
+    """Add the option-order stability to the rows of each arm with permutation records (`bench permute`).
 
     The stability uses every item with a valid permutation record, also items outside the quality scores.
     """
 
     def with_scores(row: Score) -> Score:
-        if row.arm != arm:
-            return row
         # A rerun appends a new record for the same item. The last record wins.
-        latest = {p.item_id: p for p in permutations if p.node == row.node and p.arm == arm}.values()
+        latest = {p.item_id: p for p in permutations if p.node == row.node and p.arm == row.arm}.values()
         valid = [p for p in latest if p.error is None and p.spread]
-        cost = SELF_HOSTED_HOURLY_USD / decisions_per_hour * DECISIONS_PER_COST_UNIT if decisions_per_hour else None
+        if not valid:
+            return row
         return replace(
             row,
             order_stable=_mean(bool(p.stable) for p in valid),
             order_spread=_mean(max((p.spread or {}).values()) for p in valid),
-            cost_per_1k=cost if cost is not None else row.cost_per_1k,
         )
 
     return [with_scores(row) for row in rows]
+
+
+def with_self_hosted_cost(rows: list[Score], arm: str, decisions_per_hour: float | None) -> list[Score]:
+    """Set the cost of `arm` to the GPU hourly price divided by its throughput. Keep the rows without a throughput."""
+    if not decisions_per_hour:
+        return rows
+    cost = SELF_HOSTED_HOURLY_USD / decisions_per_hour * DECISIONS_PER_COST_UNIT
+    return [replace(row, cost_per_1k=cost) if row.arm == arm else row for row in rows]
 
 
 def write_scores(rows: list[Score], stem: Path) -> str:
