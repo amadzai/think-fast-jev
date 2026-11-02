@@ -7,3 +7,4 @@ CLAUDE.md
 .ruff_cache
 .envrc
 data/coingecko/
+dist/

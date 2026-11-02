@@ -75,6 +75,11 @@ def append_queries(path: Path, queries: list[Query]) -> None:
         file.writelines(json.dumps(asdict(q)) + "\n" for q in queries)
 
 
+def generator_models(queries: Path) -> list[str]:
+    """Return the models that generated queries in the query file."""
+    return sorted({g["model"] for g in load_generations(queries)})
+
+
 def load_generations(queries: Path) -> list[dict[str, Any]]:
     """Return the entries of `<queries>.meta.json`. Return an empty list when the file does not exist."""
     meta = queries.with_suffix(".meta.json")

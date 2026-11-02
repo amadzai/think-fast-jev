@@ -12,6 +12,7 @@ from dotenv import find_dotenv, load_dotenv
 
 from bench.anthropic_client import AnthropicClient
 from bench.arm import CALL_ERRORS, UNREACHABLE_ERRORS, ArmClient, argmax, describe_error
+from bench.chart import ChartError, draw_charts, load_points
 from bench.coins import COINS_PATH, CoinFileError, load_coins
 from bench.config import (
     KEV_ARM,
@@ -24,8 +25,15 @@ from bench.config import (
     jev_config,
     kev_config,
 )
+from bench.export import export_dataset
 from bench.fetch import MARKETS_PER_PAGE_MAX, FetchError, fetch_coins
-from bench.generate import append_generation_metadata, append_queries, generate_variations, load_generations
+from bench.generate import (
+    append_generation_metadata,
+    append_queries,
+    generate_variations,
+    generator_models,
+    load_generations,
+)
 from bench.nodes import COIN_SECTOR, NODES, SECTORS, Node
 from bench.permute import MAX_PERMUTATIONS, PERMUTATIONS, Permutation, load_permutations, permutation_path, permute_node
 from bench.queries import QueryFileError, load_queries
@@ -152,7 +160,7 @@ def _items(node: Node, queries: Path, coins: Path) -> tuple[list[Item], Path, li
         typer.echo(f"coins: {len(described)}, {len(loaded) - len(described)} without a description (skipped)")
         return list(described), coins, []
     all_queries = load_queries(queries)
-    generators = sorted({g["model"] for g in load_generations(queries)})
+    generators = generator_models(queries)
     reviewed = [q for q in all_queries if q.reviewed]
     typer.echo(f"queries: {len(reviewed)} reviewed, {len(all_queries) - len(reviewed)} not reviewed (skipped)")
     return list(reviewed), queries, generators
@@ -393,6 +401,37 @@ def score(
     except OSError as error:
         raise fail(str(error))
     typer.echo(f"{out}.csv, {out}.md: {len(rows)} rows")
+
+
+@app.command()
+def chart(
+    scores: Annotated[Path, typer.Option(help="The metrics table of `bench score` (CSV).")] = Path(
+        "results/scores.csv"
+    ),
+    out: Annotated[Path, typer.Option(help="The folder for the chart images (PNG).")] = Path("results/charts"),
+    note: Annotated[str, typer.Option(help="A footer line, for example the run date and the hardware.")] = "",
+) -> None:
+    """Draw the README charts: quality against latency, and cost per 1k decisions."""
+    try:
+        paths = draw_charts(load_points(scores), out, note)
+    except (ChartError, OSError) as error:
+        raise fail(str(error))
+    typer.echo(", ".join(map(str, paths)))
+
+
+@app.command()
+def export(
+    queries: Annotated[Path, typer.Option(help="The query file (JSONL).")] = Path("data/queries.jsonl"),
+    out: Annotated[Path, typer.Option(help="The dataset folder.")] = Path("dist/dataset"),
+) -> None:
+    """Write the reviewed queries and their labels as a Hugging Face dataset, with a dataset card."""
+    try:
+        items = load_queries(queries)
+        generators = generator_models(queries)
+        count = export_dataset(items, generators, out)
+    except (QueryFileError, OSError) as error:
+        raise fail(str(error))
+    typer.echo(f"{out}: {count} reviewed queries, {len(items) - count} not reviewed (left out)")
 
 
 def _kev_data(paths: list[Path]) -> tuple[list[Permutation], list[dict[str, Any]]]:
