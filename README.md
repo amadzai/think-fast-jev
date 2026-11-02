@@ -6,4 +6,4 @@ Benchmarks single-pass decision models ([Jev](https://typesafe.ai) and its open-
 
 **Status:** WIP
 
-Data powered by CoinGecko. Not affiliated with CoinGecko or TypeSafe.
+**Powered by [CoinGecko](https://www.coingecko.com/en/api).** Not affiliated with or endorsed by CoinGecko or TypeSafe.
