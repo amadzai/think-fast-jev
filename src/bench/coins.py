@@ -7,7 +7,6 @@ from pathlib import Path
 
 from bench.nodes import SECTORS
 
-# The CoinGecko API terms do not let the repo publish this data. `.gitignore` excludes this folder.
 COINS_PATH = Path("data/coingecko/coins.jsonl")
 # Kev works best with short states. 500 characters is about 120 tokens.
 DESCRIPTION_MAX_CHARS = 500

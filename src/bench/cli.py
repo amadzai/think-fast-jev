@@ -303,7 +303,7 @@ def fetch(
 ) -> None:
     """Fetch name, symbol, description and categories of the top coins from the CoinGecko Demo API.
 
-    The data goes to data/coingecko/ (gitignored). A rerun continues after an error. At the end, the command prints
+    The data goes to data/coingecko/. A rerun continues after an error. At the end, the command prints
     the number of coins per sector and the most common categories. Use them to pick the sectors.
     """
     try:
