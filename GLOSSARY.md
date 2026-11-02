@@ -24,6 +24,10 @@ _Avoid_: Classifier, decision layer step
 One of the fixed answers that a decision node can select, with a short name and a one-line description.
 _Avoid_: Label, class, choice
 
+**Label**:
+The correct option for one item, written down before the run. Scoring compares each arm's answer with it. The arms never see it.
+_Avoid_: Ground truth, gold answer, target
+
 **Router**:
 The decision node that sends a user question to the one data tool that can answer it.
 _Avoid_: Intent classifier, dispatcher
