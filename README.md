@@ -182,17 +182,17 @@ answer, `advice` could get a reply that offers facts instead of advice, and `off
 
 ### Metrics
 
-| Metric | Meaning |
-|---|---|
-| `accuracy` | The share of items where the selected option is the label. |
-| `brier` | Calibration, as a multi-class Brier score. 0 is perfect and 2 is the worst. |
-| `agreement` | **Haiku:** the share of items where all 3 runs selected the same answer. |
-| `order_stable` | **Jev and Kev:** the share of items where all option orders selected the same option. |
-| `order_spread` | **Jev and Kev:** the mean of the largest change of one option's probability between the option orders. |
-| `model_p50`, `model_p95` | Model time in ms, median and 95th percentile. |
-| `e2e_p50`, `e2e_p95` | End-to-end time in ms as the client measures it, median and 95th percentile. |
-| `cost_per_1k` | USD per 1,000 decisions. |
-| `error_rate` | The share of decisions with an error, from the last record per decision. Kev's rate includes failed keep-warm calls. |
+| Metric | Meaning | What is good |
+|---|---|---|
+| `accuracy` | The share of items where the selected option is the label. | Higher. 1 is perfect. |
+| `brier` | Calibration, as a multi-class Brier score. | Lower. 0 is perfect and 2 is the worst. |
+| `agreement` | **Haiku:** the share of items where all 3 runs selected the same answer. | Higher. 1 means the runs always agree. |
+| `order_stable` | **Jev and Kev:** the share of items where all option orders selected the same option. | Higher. 1 means order never changed the answer. |
+| `order_spread` | **Jev and Kev:** the mean of the largest change of one option's probability between the option orders. | Lower. 0 means order had no effect. |
+| `model_p50`, `model_p95` | Model time in ms, median and 95th percentile. | Lower. |
+| `e2e_p50`, `e2e_p95` | End-to-end time in ms as the client measures it, median and 95th percentile. | Lower. |
+| `cost_per_1k` | USD per 1,000 decisions. | Lower. |
+| `error_rate` | The share of decisions with an error, from the last record per decision. Kev's rate includes failed keep-warm calls. | Lower. 0 means no errors. |
 
 ### Setup
 
