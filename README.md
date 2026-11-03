@@ -56,8 +56,8 @@ Latency is in ms and cost is in USD per 1,000 decisions. The error rate is 0 for
 
 ### Where the router misses are
 
-Most of Haiku's misses are advice questions, such as "Should I sell my Dogecoin to pay off my car loan?". The label for
-these is `unsupported`, and Haiku often selects `price`. An application that runs the guardrail first does not send them
+Most of Haiku's misses are advice questions, such as "Should I sell my Dogecoin to pay off my car loan?". The label
+answer for these is `unsupported`, and Haiku often selects `price`. An application that runs the guardrail first does not send them
 to the router.
 
 | Arm | Misses on advice questions (13) | Misses on all other questions (137) | Accuracy on the other 137 |
@@ -76,7 +76,7 @@ The raw decisions are in [`results/router.jsonl`](results/router.jsonl) and
 Each model gives every answer a confidence score. Imagine a simple rule: trust the answer only if the model is sure
 enough, and pass the question to a slower, costlier LLM if it is not. These are the 150 router questions under that rule:
 
-| Rule | Model | Sure enough | Right, out of those | Passed on |
+| Rule | Model | Questions answered | Correct answers | Passed on |
 |---|---|---|---|---|
 | At least 90% sure | **Jev** | 126 | 126 | 24 |
 | At least 90% sure | **Kev-4B** | 6 | 6 | 144 |
