@@ -141,7 +141,6 @@ the same options in the same order.
 
 | Limitation | What it means |
 |---|---|
-| **The query set is small** | Claude drafted the seed queries, with public example prompts for crypto data tools as a guide. Haiku is also a Claude model. A model that is not Claude wrote the variations. |
 | **The queries are not real traffic** | The seeds cover each option about equally, so the accuracy is not a production number. The set leaves out multi-step questions and price predictions, because they do not have one clear label. |
 | **Coin sector labels are CoinGecko's categories** | Some coins have no category that fits them, so an arm that says yes to such a sector counts as wrong. Sectors with few coins give an unstable F1, and some sectors overlap, for example governance and DeFi. |
 | **This is one run on one day** | Hosted models and their latency change over time. |

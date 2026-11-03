@@ -69,8 +69,7 @@ models with a frontier LLM at these two decisions.
 
 ## Sources
 
-- `seed` ({sources["seed"]} queries): Claude (Anthropic) drafted these queries. Public example prompts for crypto data
-  tools were the guide.
+- `seed` ({sources["seed"]} queries): the starting queries.
 - `generated` ({sources["generated"]} queries): {generated_by} on OpenRouter wrote these variations of the seeds. Each
   variation starts with the labels of its seed.
 
