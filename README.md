@@ -9,7 +9,8 @@
 </div>
 
 A small, reproducible benchmark. It compares single-pass decision models ([Jev](https://typesafe.ai) and its open-weight
-clone [Kev](https://github.com/jaredpalmer/kev)) with Claude Haiku 5.5 on quality, calibration, latency and cost.
+clone [Kev](https://github.com/jaredpalmer/kev)) with an LLM (Claude Haiku 5.5) on quality, calibration, latency and
+cost.
 
 **Powered by [CoinGecko](https://www.coingecko.com/en/api).** Not affiliated with or endorsed by CoinGecko or TypeSafe.
 
@@ -47,7 +48,8 @@ and a guardrail label.
 ## Method
 
 This benchmark tests three decisions that come up when answering crypto market questions: which data tool to call,
-whether to answer, and which sectors a coin belongs to.
+whether to answer or to decline because the question asks for personal financial advice or is off topic, and which
+sectors a coin belongs to.
 
 Jev and Kev do not generate text. They return a probability for each option from one prefill pass.
 
@@ -57,12 +59,23 @@ Each node runs on its own: an item goes in, a decision comes out. There is no pi
 
 | Decision node | Input | Options |
 |---|---|---|
-| Router | A user question | 14: 13 data-tool areas of the public CoinGecko API, and `unsupported` |
+| Router | A user question | 14: 13 data-tool areas and `unsupported` |
 | Guardrail | A user question | 3: `allow`, `advice`, `off_topic` |
 | Coin sector | A coin: name, symbol and description | 14 sectors, one yes/no question each |
 
 Option names and descriptions are in [`src/bench/nodes.py`](src/bench/nodes.py). Every arm gets the same item text and
 the same options in the same order.
+
+The guardrail options:
+
+| Option | Meaning | Example |
+|---|---|---|
+| `allow` | A question about crypto markets or crypto data that asks for facts. | What is Bitcoin dominance today? |
+| `advice` | A request for personal financial advice: what to buy, sell or hold, or when. | ETH dropped 10% today. Should I buy the dip? |
+| `off_topic` | A question that is not about crypto markets. | Can you recommend a good laptop for programming under $1,500? |
+
+The benchmark only scores the selected option, and no step acts on it. In an application, `allow` could go on to an
+answer, `advice` could get a reply that offers facts instead of advice, and `off_topic` could get a redirect.
 
 ### Arms
 
@@ -98,9 +111,9 @@ the same options in the same order.
 | `accuracy` | Router and guardrail: the share of items where the selected option is the label. |
 | `macro_f1` | Coin sector: the mean F1 over the sectors, with yes at a probability of 0.5 or more. |
 | `brier` | Calibration. 0 is perfect. Router and guardrail: multi-class (2 is the worst). Coin sector: per yes/no question (1 is the worst). |
-| `agreement` | Haiku: the share of items where all 3 runs selected the same answer. |
-| `order_stable` | Jev and Kev: the share of items where all option orders selected the same option. |
-| `order_spread` | Jev and Kev: the mean of the largest change of one option's probability between the option orders. |
+| `agreement` | **Haiku:** the share of items where all 3 runs selected the same answer. |
+| `order_stable` | **Jev and Kev:** the share of items where all option orders selected the same option. |
+| `order_spread` | **Jev and Kev:** the mean of the largest change of one option's probability between the option orders. |
 | `model_p50`, `model_p95` | Model time in ms, median and 95th percentile. |
 | `e2e_p50`, `e2e_p95` | End-to-end time in ms as the client measures it, median and 95th percentile. |
 | `cost_per_1k` | USD per 1,000 decisions. |
