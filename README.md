@@ -84,11 +84,14 @@ traffic, and this is one run on one day.
 
 ## Dataset
 
-> [!NOTE]
-> <!-- dataset link after `bench export` and upload -->The Hugging Face link goes here after publication.
+**[amadzai/think-fast-jev-queries](https://huggingface.co/datasets/amadzai/think-fast-jev-queries)** on Hugging Face
+(CC-BY-4.0): 150 user questions, each with a router label and a guardrail label.
 
-The router and guardrail queries are published as a dataset under CC-BY-4.0: 150 user questions, each with a router label
-and a guardrail label.
+```python
+from datasets import load_dataset
+
+queries = load_dataset("amadzai/think-fast-jev-queries", split="test")
+```
 
 | Field | Description |
 |---|---|
