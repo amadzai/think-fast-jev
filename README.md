@@ -47,9 +47,8 @@ and a guardrail label.
 
 ## Method
 
-This benchmark tests three decisions that come up when answering crypto market questions: which data tool to call,
-whether to answer or to decline because the question asks for personal financial advice or is off topic, and which
-sectors a coin belongs to.
+This benchmark tests two decisions that come up when answering crypto market questions: which data tool to call, and
+whether to answer or to decline because the question asks for personal financial advice or is off topic.
 
 Jev and Kev do not generate text. They return a probability for each option from one prefill pass.
 
@@ -61,7 +60,9 @@ Each node runs on its own: an item goes in, a decision comes out. There is no pi
 |---|---|---|
 | Router | A user question | 14: 13 data-tool areas and `unsupported` |
 | Guardrail | A user question | 3: `allow`, `advice`, `off_topic` |
-| Coin sector | A coin: name, symbol and description | 14 sectors, one yes/no question each |
+
+> [!NOTE]
+> The code also has a third decision node, coin sector. Its results are not published in this repo.
 
 Option names and descriptions are in [`src/bench/nodes.py`](src/bench/nodes.py). Every arm gets the same item text and
 the same options in the same order.
@@ -85,12 +86,6 @@ answer, `advice` could get a reply that offers facts instead of advice, and `off
 | Jev | Candidate | `jev-latest` | TypeSafe System One API. One prefill pass. |
 | Kev-4B | Candidate | `kev-latest` (checkpoint `jaredpalmer/kev-4b`) | The Kev server on a local GPU. Same API as Jev. |
 
-### Data
-
-- **Router and guardrail:** 150 user questions, each with both labels. See [Dataset](#dataset).
-- **Coin sector:** 176 coins from the top 200 by market cap in the CoinGecko API, the ones with a description.
-  The labels are each coin's CoinGecko categories on the fetch date, mapped to the 14 sectors in `nodes.py`.
-
 ### Procedure
 
 - The runner calls one arm at a time and finishes one item before the next. The arm order rotates per item.
@@ -108,9 +103,8 @@ answer, `advice` could get a reply that offers facts instead of advice, and `off
 
 | Metric | Meaning |
 |---|---|
-| `accuracy` | Router and guardrail: the share of items where the selected option is the label. |
-| `macro_f1` | Coin sector: the mean F1 over the sectors, with yes at a probability of 0.5 or more. |
-| `brier` | Calibration. 0 is perfect. Router and guardrail: multi-class (2 is the worst). Coin sector: per yes/no question (1 is the worst). |
+| `accuracy` | The share of items where the selected option is the label. |
+| `brier` | Calibration, as a multi-class Brier score. 0 is perfect and 2 is the worst. |
 | `agreement` | **Haiku:** the share of items where all 3 runs selected the same answer. |
 | `order_stable` | **Jev and Kev:** the share of items where all option orders selected the same option. |
 | `order_spread` | **Jev and Kev:** the mean of the largest change of one option's probability between the option orders. |
@@ -164,7 +158,6 @@ You need Python 3.12 and [uv](https://docs.astral.sh/uv/). Add your API keys to 
 |---|---|
 | `TYPESAFE_API_KEY` | Jev |
 | `ANTHROPIC_API_KEY` | Claude Haiku 5.5 |
-| `COINGECKO_API_KEY` | `bench fetch` (CoinGecko Demo API) |
 | `KEV_BASE_URL`, `KEV_API_KEY` | Kev (optional, see below) |
 
 Then run the benchmark. Replace `<your GPU>` with your own hardware:
@@ -172,11 +165,10 @@ Then run the benchmark. Replace `<your GPU>` with your own hardware:
 ```sh
 uv sync
 uv run bench check
-uv run bench fetch
-for node in router guardrail coin_sector; do uv run bench run --node "$node"; done
+for node in router guardrail; do uv run bench run --node "$node"; done
 for node in router guardrail; do uv run bench permute --node "$node"; done
-for node in router guardrail coin_sector; do uv run bench throughput --node "$node"; done
-uv run bench score
+for node in router guardrail; do uv run bench throughput --node "$node"; done
+uv run bench score results/router.jsonl results/guardrail.jsonl
 uv run bench chart --note "Run $(date +%F). Kev-4B on <your GPU>."
 uv run bench export
 ```
