@@ -93,6 +93,12 @@ Haiku is itself an LLM, so it would not pass questions on. Its rows only compare
 > [!NOTE]
 > The benchmark did not run this setup. These counts come from `results/router.jsonl`, on the same small query set.
 
+**Why is Kev-4B so unsure?** It ships with a fitted temperature of 2.41 (see `results/router.meta.json`), which flattens
+its probabilities. A recalculation from the saved router probabilities suggests that a lower temperature, fitted on half
+of the questions and scored on the other half, would improve its router Brier score from 0.22 to about 0.12 without
+changing its accuracy. This is an estimate, and it assumes standard softmax scaling. The benchmark did not rerun Kev at
+another temperature, so all results here use its shipped setting.
+
 ### What this means
 
 - **Jev** is the strongest candidate in this test. On the router, it matched **Haiku** outside advice questions at about
