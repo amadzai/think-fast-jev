@@ -65,7 +65,7 @@ ROUTER = Node(
         "price": "The current price of one or more coins in a currency.",
         "coin_details": "Facts about one coin: description, links, market cap, supply, all-time high.",
         "market_chart": "Historical price, market cap or volume of a coin over a time range.",
-        "coin_markets": "A ranked list of coins by market cap or volume.",
+        "coin_markets": "A ranked list of coins by market cap, volume or price change.",
         "trending": "The coins, NFTs and categories that users search most right now.",
         "categories": "Coin categories (sectors) and their market cap and volume.",
         "tickers": "Where one coin trades: the exchanges and trading pairs for it, with price and volume.",

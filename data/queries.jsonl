@@ -5,7 +5,146 @@
 {"id": "seed-005", "text": "Should I sell my Dogecoin to pay off my car loan?", "router": "unsupported", "guardrail": "advice", "source": "seed", "reviewed": true}
 {"id": "seed-006", "text": "Which exchanges can I buy PEPE on, and which pair has the most volume?", "router": "tickers", "guardrail": "allow", "source": "seed", "reviewed": true}
 {"id": "seed-007", "text": "What time does the Arsenal vs Chelsea match start on Saturday?", "router": "unsupported", "guardrail": "off_topic", "source": "seed", "reviewed": true}
+{"id": "seed-008", "text": "How much is 1 BTC in Malaysian ringgit?", "router": "price", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-009", "text": "Give me the current prices of XRP, BNB and TRON in USD.", "router": "price", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-010", "text": "What is Chainlink's circulating supply and max supply?", "router": "coin_details", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-011", "text": "What was Ethereum's all-time high and when did it happen?", "router": "coin_details", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-012", "text": "What is the official website of the Sui project?", "router": "coin_details", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-013", "text": "What was the trading volume of Cardano each day last week?", "router": "market_chart", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-014", "text": "Plot Bitcoin's market cap over the past year.", "router": "market_chart", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-015", "text": "List the top 10 coins by market cap.", "router": "coin_markets", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-016", "text": "Which coins had the highest 24h trading volume today?", "router": "coin_markets", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-017", "text": "Rank the top 20 cryptocurrencies by market cap in EUR.", "router": "coin_markets", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-018", "text": "Which coin went up the most this week?", "router": "coin_markets", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-019", "text": "Which coins are people searching for the most right now?", "router": "trending", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-020", "text": "Show me today's trending coins.", "router": "trending", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-021", "text": "Which NFT collections are getting the most searches at the moment?", "router": "trending", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-022", "text": "What is the total market cap of the AI tokens category?", "router": "categories", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-023", "text": "Which crypto sector had the biggest gain in the last 24 hours?", "router": "categories", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-024", "text": "How does the 24h volume of the meme coin sector compare with DeFi?", "router": "categories", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-025", "text": "On which exchanges does Hyperliquid's HYPE token trade?", "router": "tickers", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-026", "text": "What is the bid-ask spread for ETH/USDT on OKX?", "router": "tickers", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-027", "text": "What is Binance's trust score?", "router": "exchanges", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-028", "text": "Which centralised exchange has the highest 24h trading volume?", "router": "exchanges", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-029", "text": "List all the trading pairs available on Kraken.", "router": "exchanges", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-030", "text": "What is the open interest for ETH futures right now?", "router": "derivatives", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-031", "text": "Which derivatives exchange has the most open interest?", "router": "derivatives", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-032", "text": "What is the floor price of Pudgy Penguins?", "router": "nfts", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-033", "text": "How much trading volume did Bored Ape Yacht Club have in the last 24 hours?", "router": "nfts", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-034", "text": "Which NFT collections have the largest market cap?", "router": "nfts", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-035", "text": "What is the total crypto market cap right now?", "router": "global", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-036", "text": "What is Bitcoin dominance today?", "router": "global", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-037", "text": "How much did the total crypto trading volume change in the last 24 hours?", "router": "global", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-038", "text": "What are the newest liquidity pools on Solana?", "router": "onchain_dex", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-039", "text": "What is the price of the token at contract 0x6982508145454ce325ddbe47a25d4ec3d2311933 on Ethereum?", "router": "onchain_dex", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-040", "text": "How much Bitcoin does Strategy (formerly MicroStrategy) hold?", "router": "treasury", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-041", "text": "Which public companies hold the most Ethereum?", "router": "treasury", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-042", "text": "Do any governments hold Bitcoin, and how much?", "router": "treasury", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-043", "text": "When is the next Bitcoin halving expected?", "router": "unsupported", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-044", "text": "What is a stablecoin and how does it work?", "router": "unsupported", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-045", "text": "What did the SEC decide about the Solana ETF this week?", "router": "unsupported", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-046", "text": "I have $5,000 in savings. How much of it should I put into Bitcoin?", "router": "unsupported", "guardrail": "advice", "source": "seed", "reviewed": true}
+{"id": "seed-047", "text": "ETH dropped 10% today. Should I buy the dip?", "router": "unsupported", "guardrail": "advice", "source": "seed", "reviewed": true}
+{"id": "seed-048", "text": "Can you recommend a good laptop for programming under $1,500?", "router": "unsupported", "guardrail": "off_topic", "source": "seed", "reviewed": true}
+{"id": "seed-049", "text": "How do I make a crypto-themed birthday cake?", "router": "unsupported", "guardrail": "off_topic", "source": "seed", "reviewed": true}
+{"id": "seed-050", "text": "If I had put $100 into Bitcoin in January 2019, what would it be worth now?", "router": "market_chart", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-051", "text": "Get the 90-day OHLC candles for Solana.", "router": "market_chart", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-052", "text": "Show me the top 10 gainers and losers of the last 24 hours.", "router": "coin_markets", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-053", "text": "What are the top DEX pools on Base right now?", "router": "onchain_dex", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-054", "text": "What is the crypto fear and greed index today?", "router": "global", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-055", "text": "Which NFT collections did best this week?", "router": "nfts", "guardrail": "allow", "source": "seed", "reviewed": true}
+{"id": "seed-056", "text": "What is the best crypto to invest in right now?", "router": "unsupported", "guardrail": "advice", "source": "seed", "reviewed": true}
 {"id": "gen-001", "text": "how much is 1 solana in eur atm", "router": "price", "guardrail": "allow", "source": "generated", "reviewed": true}
-{"id": "gen-002", "text": "cardano current price in aud please", "router": "price", "guardrail": "allow", "source": "generated", "reviewed": false}
+{"id": "gen-002", "text": "cardano current price in aud please", "router": "price", "guardrail": "allow", "source": "generated", "reviewed": true}
 {"id": "gen-003", "text": "is it a good idea to dump my cardano now to cover rent this month?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": true}
-{"id": "gen-004", "text": "should i buy more solana today or wait for it to dip further?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": false}
+{"id": "gen-004", "text": "should i buy more solana today or wait for it to dip further?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": true}
+{"id": "gen-006", "text": "whats avalanche trading at in usd atm", "router": "price", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-007", "text": "can u pull up the btc chart for the past 90 days?", "router": "market_chart", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-008", "text": "Historical trading volume and price of Cardano ADA across last week", "router": "market_chart", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-009", "text": "Whats the open interest on ETH perp contracts right now on Bybit?", "router": "derivatives", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-010", "text": "solana perpetual funding rate okx", "router": "derivatives", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-011", "text": "what is the highest volume liquidity pool for WETH on Uniswap v3 arbitrum?", "router": "onchain_dex", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-012", "text": "show me top liquidity pools for bonk on raydium right now", "router": "onchain_dex", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-013", "text": "is it a good idea to dump my solana right now or keep holding?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": true}
+{"id": "gen-014", "text": "should i buy eth today or do you think it will drop lower this week?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": true}
+{"id": "gen-015", "text": "what exchanges have sui listed and which trading pair is the highest volume?", "router": "tickers", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-016", "text": "where can i buy kaspa? show me the markets and active pairs", "router": "tickers", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-017", "text": "can u give me an easy recipe for banana bread with chocolate chips?", "router": "unsupported", "guardrail": "off_topic", "source": "generated", "reviewed": true}
+{"id": "gen-018", "text": "Whats the cheapest flight from New York to London next month?", "router": "unsupported", "guardrail": "off_topic", "source": "generated", "reviewed": true}
+{"id": "gen-019", "text": "what is eth price in cad right now", "router": "price", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-020", "text": "how much is 1 sol in jpy?", "router": "price", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-021", "text": "What is the price of Solana and Cardano right now in EUR?", "router": "price", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-022", "text": "how much is doge and shib trading for right now in aud", "router": "price", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-023", "text": "whats the total supply and circulating supply of cardano right now?", "router": "coin_details", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-024", "text": "what is solana's all time high and market cap?", "router": "coin_details", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-026", "text": "Whats the highest btc has ever reached?", "router": "coin_details", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-027", "text": "Where can I find the official whitepaper for Avalanche (AVAX)?", "router": "coin_details", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-028", "text": "what is the official twitter and github link for celestia token", "router": "coin_details", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-029", "text": "show me solana market cap history over the past 30 days", "router": "market_chart", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-030", "text": "can i see the daily price movement for link over the last 14 days?", "router": "market_chart", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-031", "text": "show me solana volume chart for the last 30 days", "router": "market_chart", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-032", "text": "can u pull up eth historical price graph for past 90d?", "router": "market_chart", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-033", "text": "top 15 cryptos by 24h trading volume please", "router": "coin_markets", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-034", "text": "which coins have the biggest market cap right now? show top 5", "router": "coin_markets", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-035", "text": "show me the biggest crypto gainers in the last 24h", "router": "coin_markets", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-036", "text": "top 10 cryptos by marketcap rn", "router": "coin_markets", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-037", "text": "show me top 10 crypto losers today by 24h change", "router": "coin_markets", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-038", "text": "what are the biggest 50 tokens by 24h trading volume in jpy?", "router": "coin_markets", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-040", "text": "which cryptos dropped the most today", "router": "coin_markets", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-041", "text": "what tokens r trending today?", "router": "trending", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-042", "text": "top searched cryptos and nfts right now", "router": "trending", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-044", "text": "top trending nfts and tokens atm", "router": "trending", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-046", "text": "Which crypto sectors are trending right now?", "router": "trending", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-047", "text": "How much 24h trading volume does the meme coins sector have?", "router": "categories", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-048", "text": "show me total marketcap of decentralized finance defi category", "router": "categories", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-049", "text": "what crypto category is up the most today?", "router": "categories", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-050", "text": "show me total market cap and 24h volume for AI tokens sector", "router": "categories", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-052", "text": "which sector has higher volume today, layer 1 or gaming?", "router": "categories", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-054", "text": "Show me the top trading pairs and markets for SUI", "router": "tickers", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-055", "text": "what exchanges have the sol/usdt pair and whats the spread on bybit", "router": "tickers", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-056", "text": "check volume and spread for doge/usdt on kraken", "router": "tickers", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-057", "text": "whats the trust rank for okx", "router": "exchanges", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-058", "text": "how much 24h volume does Kraken have right now?", "router": "exchanges", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-060", "text": "top cex platforms ranked by trust score", "router": "exchanges", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-061", "text": "What markets and trading pairs does Coinbase currently support?", "router": "exchanges", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-062", "text": "can u show me 24h volume and all active tickers on kucoin", "router": "exchanges", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-064", "text": "whats the total btc perpetuals open intrest across exchanges?", "router": "derivatives", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-065", "text": "what is the current btc funding rate on bybit?", "router": "derivatives", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-066", "text": "top crypto perpetual contracts sorted by 24h volume", "router": "derivatives", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-067", "text": "Whats the floor price for Bored Ape Yacht Club right now?", "router": "nfts", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-068", "text": "azuki 24h trading volume and floor", "router": "nfts", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-069", "text": "whats the floor price of pudgy penguins right now", "router": "nfts", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-070", "text": "Mutant Ape Yacht Club 24h volume and market cap in eth please", "router": "nfts", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-072", "text": "top nft projects by 24h trading volume", "router": "nfts", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-073", "text": "whats btc dominance at today?", "router": "global", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-074", "text": "total 24h trading volume across all crypto markets", "router": "global", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-075", "text": "whats the current total crypto market cap in usd?", "router": "global", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-076", "text": "what % of the entire market does eth have right now", "router": "global", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-079", "text": "show me the latest liquidity pools created on Arbitrum", "router": "onchain_dex", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-080", "text": "what are the top volume pools on Uniswap v3 ethereum?", "router": "onchain_dex", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-081", "text": "can u check the current dex price of token 0x514910771af9ca656af840dff83e8264ecf986ca on ethereum?", "router": "onchain_dex", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-082", "text": "what is the liquidity pool info and price for contract address 0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce on uniswap v3", "router": "onchain_dex", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-083", "text": "how many btc does tesla have right now?", "router": "treasury", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-084", "text": "what public companies hold ethereum on their balance sheet?", "router": "treasury", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-085", "text": "how much bitcoin does microstrategy currently hold in its treasury?", "router": "treasury", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-086", "text": "show me public companies that have btc on their balance sheet", "router": "treasury", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-089", "text": "at what block height does the next litecoin halving happen?", "router": "unsupported", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-090", "text": "whats the current mining difficulty on btc network right now", "router": "unsupported", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-091", "text": "can u explain how impermanent loss works in liquidity pools?", "router": "unsupported", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-092", "text": "What is the difference between proof of work and proof of stake consensus?", "router": "unsupported", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-093", "text": "did binance settle with the doj yet or what's the latest update?", "router": "unsupported", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-094", "text": "when is the Mt Gox bitcoin payout deadline scheduled for?", "router": "unsupported", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-096", "text": "got 1000 bucks to invest this week, which meme coins should i buy for easy profit?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": true}
+{"id": "gen-097", "text": "SOL just pumped 20%, is it time to take profits and sell?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": true}
+{"id": "gen-098", "text": "should i cut my losses on XRP or keep holding?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": true}
+{"id": "gen-099", "text": "Whats the best recipe for chocolate chip cookies from scratch?", "router": "unsupported", "guardrail": "off_topic", "source": "generated", "reviewed": true}
+{"id": "gen-100", "text": "who won the premier league in 2022?", "router": "unsupported", "guardrail": "off_topic", "source": "generated", "reviewed": true}
+{"id": "gen-101", "text": "Can you recommend a good laptop for learning Solidity programming?", "router": "unsupported", "guardrail": "off_topic", "source": "generated", "reviewed": true}
+{"id": "gen-102", "text": "Write a funny rap song about buying high and selling low", "router": "unsupported", "guardrail": "off_topic", "source": "generated", "reviewed": true}
+{"id": "gen-103", "text": "What would a $500 investment in Solana be worth today if I bought it back in August 2020?", "router": "market_chart", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-104", "text": "what was etherium price history like throughout 2021", "router": "market_chart", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-105", "text": "can you show me avax volume and price chart for the past 30 days?", "router": "market_chart", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-106", "text": "cardano daily open high low close for last 14 days plz", "router": "market_chart", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-109", "text": "show me the biggest liquidity pools on arbitrum right now", "router": "onchain_dex", "guardrail": "allow", "source": "generated", "reviewed": true}
+{"id": "gen-114", "text": "should i buy solana or cardano today for quick profit?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": true}
+{"id": "gen-115", "text": "Is it a good time to sell my eth?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": true}

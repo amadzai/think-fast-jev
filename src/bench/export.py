@@ -69,10 +69,12 @@ models with a frontier LLM at these two decisions.
 
 ## Sources
 
-- `seed` ({sources["seed"]} queries): Claude (Anthropic) drafted these queries. The author reviewed and edited them.
-- `generated` ({sources["generated"]} queries): {generated_by} on OpenRouter wrote these variations of the seeds.
+- `seed` ({sources["seed"]} queries): Claude (Anthropic) drafted these queries. Public example prompts for crypto data
+  tools were the guide.
+- `generated` ({sources["generated"]} queries): {generated_by} on OpenRouter wrote these variations of the seeds. Each
+  variation starts with the labels of its seed.
 
-The author reviewed every query and every label. One person wrote all labels.
+These queries are not real user traffic.
 
 ## Router options
 

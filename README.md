@@ -103,25 +103,25 @@ _The full run is not done yet._
 - **End-to-end time depends on the location.** Jev and Haiku go from Malaysia over the internet. Kev goes over the
   local network.
 - **Kev gets a keep-warm call.** On the test PC, Kev's model time rises from about 60 ms to about 180–290 ms after
-  8 s or more of idle. Tests did not find the cause. The runner sends one unrecorded call to Kev right before each recorded
+  8 s or more of idle. The runner sends one unrecorded call to Kev right before each recorded
   call. Without it, a production server with gaps between requests pays this idle penalty. With keep-warm, a few calls
   (about 7% in a test) still took 300–500 ms. These calls can reach Kev's p95.
-- **Kev's cost is an estimate.** The throughput comes from an RTX 5070 Ti, not from the L4 in the g6.xlarge. The client
-  sends the calls from a Mac over the local network, so the time includes the network. The cost assumes that the GPU is
-  busy all the time. In ap-southeast-5 (Malaysia), the g6.xlarge costs $1.0138 per hour.
+- **Kev's cost is an estimate.** The throughput comes from an RTX 5070 Ti, not from the L4 in the g6.xlarge. The cost
+  assumes that the GPU is busy all the time. In ap-southeast-5 (Malaysia), the g6.xlarge costs $1.0138 per hour.
 - **Option order can change the answer.** The [TypeSafe docs](https://docs.typesafe.ai/primitives/choice) say that
   Jev 1.13 can lean toward the first option. The main
   run uses one fixed order for every arm. `order_stable` and `order_spread` show the effect for Jev and Kev. This benchmark
-  does not measure Haiku's option-order sensitivity. An item where two options have the same probability can show as
-  unstable.
+  does not measure Haiku's option-order sensitivity.
 - **The coin sector labels are CoinGecko's current categories.** Some coins do not have a category that fits them. An
   arm that says yes to such a sector counts as wrong. The 14 sectors are broad, but sectors with few coins give an
   unstable F1. Some sectors overlap, for example governance and DeFi. The labels are from the fetch date.
-- **The query set is small and has one labeller.** Claude drafted the seed queries, and the author reviewed and edited
-  them. Haiku is also a Claude model. A model that is not Claude wrote the variations. The author reviewed every query
-  and label.
+- **The query set is small.** Claude drafted the seed queries, with public example prompts for crypto data tools as a
+  guide. Haiku is also a Claude model. A model that is not Claude wrote the variations.
+- **The query set is not real user traffic.** The seeds cover each option about equally. Real users can ask for some
+  options much more often, so the accuracy here is not a production number. The set leaves out multi-step questions and
+  price predictions, because they do not have one clear label.
 - **The error rate uses the last record per decision.** An error that a rerun fixed does not count. Kev's error rate
-  includes failed keep-warm calls (errors that start with `keep-warm call: `).
+  includes failed keep-warm calls.
 - **This is one run on one day.** Hosted models and their latency change over time.
 
 ## Reproduce
