@@ -8,7 +8,7 @@ from typing import NamedTuple
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
-from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
+from matplotlib.ticker import FormatStrFormatter, FuncFormatter, LogLocator, MultipleLocator, NullFormatter
 
 from bench.nodes import NODES
 
@@ -47,14 +47,18 @@ HEADER_INCHES = 0.8
 # Latency axis ticks: 50 ms, 100 ms, 200 ms, 500 ms, 1 s and so on.
 LATENCY_TICKS = (1.0, 2.0, 5.0)
 # The quality axis ends a little above 1, so that a dot at 1 is not cut.
-QUALITY_TOP = 1.02
+QUALITY_TOP = 1.03
+# The step between the marks on the quality axis.
+QUALITY_TICK = 0.05
 QUALITY_MARGIN = 0.05
 FIGURE_WIDTH = 7.2
 # The height of one node panel, and of one row of the cost chart.
-PANEL_HEIGHT = 2.6
+PANEL_HEIGHT = 3.2
 COST_ROW_HEIGHT = 0.45
+# The space between two node panels, as a share of the figure height.
+PANEL_GAP = 0.08
 # The height of the title, legend and footer around the plots.
-LATENCY_EXTRA_HEIGHT = 1.2
+LATENCY_EXTRA_HEIGHT = 1.8
 COST_EXTRA_HEIGHT = 2.2
 # Text offsets from a dot, in points: the value above a latency dot, and to the right of a cost dot.
 ABOVE_DOT = (0, 9)
@@ -196,12 +200,22 @@ def _quality_latency(points: list[Point], note: str) -> Figure:
     # One quality scale for all panels, so that a gap of 0.05 looks the same in every panel.
     lowest = min((p.quality for p in points if p.quality is not None), default=0.0)
     panels = figure.subplots(len(nodes), 1, sharex=True, sharey=True, squeeze=False)[:, 0]
+    figure.get_layout_engine().set(hspace=PANEL_GAP)  # pyright: ignore[reportOptionalMemberAccess, reportCallIssue]
+    quality_name = "Quality" if "coin_sector" in nodes else "Accuracy"
     for axes, node in zip(panels, nodes, strict=True):
         _style(axes)
         axes.set_xscale("log")
         axes.xaxis.set_major_locator(LogLocator(subs=LATENCY_TICKS))
         axes.xaxis.set_major_formatter(FuncFormatter(_milliseconds))
         axes.xaxis.set_minor_formatter(NullFormatter())
+        # A shared axis shows its marks only on the lowest panel. Each panel shows them here.
+        axes.tick_params(labelbottom=True)
+        axes.set_xlabel(
+            "End-to-end latency per decision (log scale, further left is faster)",
+            color=TEXT_SECONDARY,
+            fontsize=FONT_SIZE,
+        )
+        axes.set_ylabel(f"{quality_name} (higher is better)", color=TEXT_SECONDARY, fontsize=FONT_SIZE)
         axes.set_title(_node_title(node), loc="left", fontsize=FONT_SIZE + 1, color=TEXT_PRIMARY)
         for p in (p for p in points if p.node == node):
             if p.quality is None or p.e2e_p50 is None:
@@ -210,9 +224,8 @@ def _quality_latency(points: list[Point], note: str) -> Figure:
                 axes.plot([p.e2e_p50, p.e2e_p95], [p.quality, p.quality], color=ARMS[p.arm].color, linewidth=LINE_WIDTH)
             _dot(axes, p.e2e_p50, p.quality, p.arm, f"{p.quality:.2f}", ABOVE_DOT, ha="center", va="bottom")
     panels[0].set_ylim(max(0.0, lowest - QUALITY_MARGIN), QUALITY_TOP)
-    # No tick above 1: no quality is above 1.
-    panels[0].set_yticks([t for t in panels[0].get_yticks() if lowest - QUALITY_MARGIN <= t <= 1])
-    panels[-1].set_xlabel("End-to-end latency per decision", color=TEXT_SECONDARY, fontsize=FONT_SIZE)
+    panels[0].yaxis.set_major_locator(MultipleLocator(QUALITY_TICK))
+    panels[0].yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
     return figure
 
 
@@ -252,6 +265,9 @@ def _cost(points: list[Point], note: str) -> Figure:
     axes.invert_yaxis()
     low, high = axes.get_xlim()
     axes.set_xlim(low, high * COST_RIGHT_ROOM)
+    axes.set_xlabel(
+        "USD per 1,000 decisions (log scale, further left is cheaper)", color=TEXT_SECONDARY, fontsize=FONT_SIZE
+    )
     return figure
 
 
