@@ -16,18 +16,57 @@ cost.
 
 ## Headline
 
-<!-- After the full run: the answer in 2-3 sentences, with the three numbers for each node. Say where the candidates lose. -->
-> [!NOTE]
-> The full run is in progress. The answer goes here when it ends.
+Jev matched Haiku on router accuracy once advice questions are set aside (97.8%), at about 1/6 of the cost and 1/7 of
+the latency, with better calibration. Kev-4B was the fastest and cheapest, on a local network and with an estimated
+cost, but it scored lower on routing (91.2%) and had the worst calibration. Every arm scored 100% on the guardrail, so
+this set does not separate them.
 
 ## Results
 
-<!-- After the full run: paste results/scores.md here, then run `bench chart`. -->
-_The results table goes here after the full run._
+### Quality
+
+| Decision node | Arm | `accuracy` | `brier` | `agreement` | `order_stable` | `order_spread` |
+|---|---|---|---|---|---|---|
+| Router | Jev | 0.94 | 0.084 | n/a | 0.96 | 0.036 |
+| Router | Kev-4B | 0.92 | 0.220 | n/a | 0.91 | 0.119 |
+| Router | Claude Haiku 5.5 | 0.90 | 0.163 | 1.00 | n/a | n/a |
+| Guardrail | Jev | 1.00 | 0.002 | n/a | 1.00 | 0.005 |
+| Guardrail | Kev-4B | 1.00 | 0.032 | n/a | 1.00 | 0.032 |
+| Guardrail | Claude Haiku 5.5 | 1.00 | 0.007 | 1.00 | n/a | n/a |
+
+### Latency and cost
+
+Latency is in ms and cost is in USD per 1,000 decisions. The error rate is 0 for every arm.
+
+| Decision node | Arm | `model_p50` | `model_p95` | `e2e_p50` | `e2e_p95` | `cost_per_1k` |
+|---|---|---|---|---|---|---|
+| Router | Jev | n/a | n/a | 262 | 349 | $0.029 |
+| Router | Kev-4B | 55 | 65 | 63 | 88 | $0.008 (estimate) |
+| Router | Claude Haiku 5.5 | 1,647 | 1,961 | 1,898 | 2,227 | $0.172 |
+| Guardrail | Jev | n/a | n/a | 249 | 309 | $0.016 |
+| Guardrail | Kev-4B | 36 | 51 | 44 | 58 | $0.004 (estimate) |
+| Guardrail | Claude Haiku 5.5 | 1,307 | 3,024 | 1,561 | 3,309 | $0.056 |
 
 ![Quality against latency per decision](results/charts/quality_latency.png)
 
 ![Cost per 1,000 decisions](results/charts/cost.png)
+
+### Where the router misses are
+
+Most of Haiku's misses are advice questions, such as "Should I sell my Dogecoin to pay off my car loan?". The label for
+these is `unsupported`, and Haiku often selects `price`. An application that runs the guardrail first does not send them
+to the router.
+
+| Arm | Misses on advice questions (13) | Misses on all other questions (137) | Accuracy on the other 137 |
+|---|---|---|---|
+| Jev | 6 | 3 | 97.8% |
+| Kev-4B | 0 | 12 | 91.2% |
+| Claude Haiku 5.5 | 12 | 3 | 97.8% |
+
+The raw decisions are in [`results/router.jsonl`](results/router.jsonl) and
+[`results/guardrail.jsonl`](results/guardrail.jsonl), with the option-order runs in `results/*.permute.jsonl`. Match
+`item_id` to `id` in [`data/queries.jsonl`](data/queries.jsonl). The full metrics are in
+[`results/scores.md`](results/scores.md).
 
 ## Dataset
 
@@ -115,10 +154,8 @@ answer, `advice` could get a reply that offers facts instead of advice, and `off
 
 ### Setup
 
-<!-- After the full run: date, model versions from the run metadata, and the client location. -->
-- **Run date:** _after the run_.
-- **Model versions:** _from the run metadata_. `jev-latest` is an alias, so the run records the version that each
-  response reports.
+- **Run date:** 2026-11-03.
+- **Model versions:** `jev-1.14.0`, `claude-haiku-5-5`, and `kev-latest` with the checkpoint `jaredpalmer/kev-4b`.
 - **Client:** a Mac in Malaysia. Jev and Haiku go over the internet. Kev goes over the local network.
 - **Kev server:** RTX 5070 Ti (16 GB), WSL2 Ubuntu 24.04, PyTorch 2.8.0, `KEV_PREFIX_CACHE=1`.
 - **Prices:** Jev $0.042 per 1M input tokens, output free. Haiku $0.10 per 1M input tokens and $0.50 per 1M output
@@ -147,6 +184,9 @@ answer, `advice` could get a reply that offers facts instead of advice, and `off
 
 | Limitation | What it means |
 |---|---|
+| **The router gaps are small** | With 150 queries, the accuracy gap between Jev and Haiku is not statistically significant (exact McNemar test, p = 0.11). |
+| **The router scores depend on a label rule** | Advice questions are labelled `unsupported`. A different rule changes the ranking, as [the miss table](#where-the-router-misses-are) shows. |
+| **The guardrail set is too easy** | Every arm scored 100%, so the set does not separate them. Only 22 of the 150 questions are `advice` or `off_topic`. |
 | **The queries are not real traffic** | The seeds cover each option about equally, so the accuracy is not a production number. The set leaves out multi-step questions and price predictions, because they do not have one clear label. |
 | **This is one run on one day** | Hosted models and their latency change over time. |
 
