@@ -75,7 +75,8 @@ the same options in the same order.
 ### Data
 
 - **Router and guardrail:** 150 user questions, each with both labels. See [Dataset](#dataset).
-- **Coin sector:** the top 200 coins by market cap from the CoinGecko API, without the coins that have no description.
+- **Coin sector:** the top 200 coins by market cap from the CoinGecko API, without the 24 that have no description: 176
+  coins.
   The labels are each coin's CoinGecko categories on the fetch date, mapped to the 14 sectors in `nodes.py`.
 
 ### Procedure
