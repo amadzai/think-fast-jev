@@ -16,8 +16,8 @@ cost.
 
 ## Headline
 
-Jev matched Haiku on router accuracy once advice questions are set aside (97.8%), at about 1/6 of the cost and 1/7 of
-the latency, with better calibration. Kev-4B was the fastest and cheapest, on a local network and with an estimated
+**Jev** matched **Haiku** on router accuracy once advice questions are set aside (97.8%), at about 1/6 of the cost and
+1/7 of the latency, with better calibration. **Kev-4B** was the fastest and cheapest, on a local network and with an estimated
 cost, but it scored lower on routing (91.2%) and had the worst calibration. Every arm scored 100% on the guardrail, so
 this set does not separate them.
 
@@ -67,6 +67,20 @@ The raw decisions are in [`results/router.jsonl`](results/router.jsonl) and
 [`results/guardrail.jsonl`](results/guardrail.jsonl), with the option-order runs in `results/*.permute.jsonl`. Match
 `item_id` to `id` in [`data/queries.jsonl`](data/queries.jsonl). The full metrics are in
 [`results/scores.md`](results/scores.md).
+
+### What this means
+
+- **Jev** is the strongest candidate in this test. On the router, it matched **Haiku** outside advice questions at about
+  1/6 of the cost and 1/7 of the latency, with better calibration.
+- **Kev-4B** gives up router accuracy and calibration for speed and cost. It was the fastest and cheapest, and it missed
+  no advice questions, but it missed 12 of the other router questions. It also needs your own GPU, and its cost is an
+  estimate.
+- **Haiku** lost on speed and cost, but not clearly on accuracy. Most of its misses were advice questions, which a
+  guardrail that runs first would stop.
+- The guardrail comparison is still open. Every arm scored 100%, so a harder set is needed to separate them.
+
+These results support a production trial of **Jev** for decisions like these, not a direct switch. The queries are not real
+traffic, and this is one run on one day.
 
 ## Dataset
 
