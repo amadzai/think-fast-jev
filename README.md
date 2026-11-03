@@ -23,6 +23,9 @@ this set does not separate them.
 
 ## Results
 
+> [!TIP]
+> See [Metrics](#metrics) for what each value means.
+
 ### Quality
 
 | Decision node | Arm | `accuracy` | `brier` | `agreement` | `order_stable` | `order_spread` |
@@ -67,6 +70,28 @@ The raw decisions are in [`results/router.jsonl`](results/router.jsonl) and
 [`results/guardrail.jsonl`](results/guardrail.jsonl), with the option-order runs in `results/*.permute.jsonl`. Match
 `item_id` to `id` in [`data/queries.jsonl`](data/queries.jsonl). The full metrics are in
 [`results/scores.md`](results/scores.md).
+
+### What if you only trust confident answers?
+
+Each model gives every answer a confidence score. Imagine a simple rule: trust the answer only if the model is sure
+enough, and pass the question to a slower, costlier LLM if it is not. These are the 150 router questions under that rule:
+
+| Rule | Model | Sure enough | Right, out of those | Passed on |
+|---|---|---|---|---|
+| At least 90% sure | **Jev** | 126 | 126 | 24 |
+| At least 90% sure | **Kev-4B** | 6 | 6 | 144 |
+| At least 90% sure | **Claude Haiku 5.5** | 25 | 25 | 125 |
+| At least 70% sure | **Jev** | 134 | 131 | 16 |
+| At least 70% sure | **Kev-4B** | 71 | 71 | 79 |
+| At least 70% sure | **Claude Haiku 5.5** | 127 | 122 | 23 |
+
+At the 90% rule, all three were right every time they were that sure. The difference is how often they were that sure.
+**Jev** would answer 126 questions itself and pass on only 24, while **Kev-4B** would pass on almost everything.
+
+Haiku is itself an LLM, so it would not pass questions on. Its rows only compare how confident it is.
+
+> [!NOTE]
+> The benchmark did not run this setup. These counts come from `results/router.jsonl`, on the same small query set.
 
 ### What this means
 
