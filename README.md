@@ -123,7 +123,7 @@ the same options in the same order.
 
 | Limitation | What it means |
 |---|---|
-| **Haiku runs at its lowest setting** | Thinking is disabled and effort is `low`. A higher setting can change its quality, latency and cost. |
+| **Haiku runs at its lowest setting** | Thinking is disabled and effort is `low`, so that Haiku answers directly, like the System One models. A higher setting can change its quality, latency and cost. |
 | **Haiku's probabilities are self-reported** | The Anthropic API gives no logprobs. Haiku writes one number per option. For the router and guardrail, the client scales them to sum to 1, and the Brier score uses the scaled numbers. |
 | **Kev gets a keep-warm call** | On the test PC, Kev's model time rises from about 60 ms to about 180–290 ms after 8 s or more of idle. The runner sends one unrecorded call before each recorded call. A production server with gaps between requests pays this penalty. With keep-warm, about 7% of calls in a test still took 300–500 ms, which can reach Kev's p95. |
 | **Option order can change the answer** | The [TypeSafe docs](https://docs.typesafe.ai/primitives/choice) say that Jev 1.13 can lean toward the first option. The main run uses one fixed order. `order_stable` and `order_spread` show the effect for Jev and Kev, not for Haiku. |
