@@ -142,6 +142,7 @@ def _figure(width: float, height: float, title: str, subtitle: str, note: str, a
     figure = Figure(figsize=(width, height), facecolor=SURFACE, layout="constrained")
     top = 1 - HEADER_INCHES / height
     figure.text(0.02, 0.99, title, va="top", fontsize=TITLE_SIZE, color=TEXT_PRIMARY, fontweight="bold")
+    figure.text(0.98, 0.99, "Powered by CoinGecko", ha="right", va="top", fontsize=FONT_SIZE, color=TEXT_SECONDARY)
     _legend(figure, arms, top)
     footer = f"{subtitle}\n{note}".strip()
     figure.text(0.02, 0.01, footer, fontsize=FOOTER_SIZE, color=TEXT_SECONDARY, va="bottom")
@@ -224,7 +225,7 @@ def _cost(points: list[Point], note: str) -> Figure:
         COST_ROW_HEIGHT * len(nodes) * len(arms) + COST_EXTRA_HEIGHT,
         "Cost per 1,000 decisions (USD)",
         "Cost axis is logarithmic. Jev and Haiku: list price per token. Kev-4B: AWS g6.xlarge (1 x L4) on-demand price\n"
-        "per hour, divided by the decisions per hour that `bench throughput` measured.",
+        "per hour, divided by the measured decisions per hour.",
         note,
         arms,
     )

@@ -8,3 +8,4 @@ CLAUDE.md
 .envrc
 data/coingecko/
 dist/
+results/coin_sector.jsonl
