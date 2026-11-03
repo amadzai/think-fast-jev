@@ -2,9 +2,9 @@
 
 # think-fast-jev
 
-**Can a single-pass model take the decision layer of a crypto market-data assistant from a frontier LLM?**
+**Models built to decide vs a model built to talk.**
 
-[Headline](#headline) • [Results](#results) • [Method](#method) • [Limitations](#limitations) • [Reproduce](#reproduce)
+[Headline](#headline) • [Results](#results) • [Dataset](#dataset) • [Method](#method) • [Limitations](#limitations) • [Reproduce](#reproduce)
 
 </div>
 
@@ -28,17 +28,32 @@ _The results table goes here after the full run._
 
 ![Cost per 1,000 decisions](results/charts/cost.png)
 
+## Dataset
+
+> [!NOTE]
+> <!-- dataset link after `bench export` and upload -->The Hugging Face link goes here after publication.
+
+The router and guardrail queries are published as a dataset under CC-BY-4.0: 150 user questions, each with a router label
+and a guardrail label.
+
+| Field | Description |
+|---|---|
+| `id` | The query ID. |
+| `text` | The user question. |
+| `router` | The router label: one of 14 options. |
+| `guardrail` | The guardrail label: `allow`, `advice` or `off_topic`. |
+| `source` | `seed` or `generated`. |
+
 ## Method
 
-Before an assistant like this writes an answer, it makes small decisions: which data tool to call, and whether it may
-answer at all. This benchmark tests whether a model built only for such choices can make them as well as a frontier LLM.
+This benchmark tests three decisions that come up when answering crypto market questions: which data tool to call,
+whether to answer, and which sectors a coin belongs to.
 
 Jev and Kev do not generate text. They return a probability for each option from one prefill pass.
 
 ### Decision nodes
 
-Each node runs on its own: an item goes in, a decision comes out. There is no assistant pipeline and no answer
-generation.
+Each node runs on its own: an item goes in, a decision comes out. There is no pipeline and no answer generation.
 
 | Decision node | Input | Options |
 |---|---|---|
@@ -59,10 +74,9 @@ the same options in the same order.
 
 ### Data
 
-- **Router and guardrail:** 150 user questions, each with a router label and a guardrail label. The set is on Hugging
-  Face: <!-- dataset link after `bench export` and upload -->_link after publication_.
+- **Router and guardrail:** 150 user questions, each with both labels. See [Dataset](#dataset).
 - **Coin sector:** the top 200 coins by market cap from the CoinGecko API, without the coins that have no description.
-  The labels are each coin's current CoinGecko categories, mapped to the 14 sectors in `nodes.py`.
+  The labels are each coin's CoinGecko categories on the fetch date, mapped to the 14 sectors in `nodes.py`.
 
 ### Procedure
 
@@ -90,7 +104,7 @@ the same options in the same order.
 | `model_p50`, `model_p95` | Model time in ms, median and 95th percentile. |
 | `e2e_p50`, `e2e_p95` | End-to-end time in ms as the client measures it, median and 95th percentile. |
 | `cost_per_1k` | USD per 1,000 decisions. |
-| `error_rate` | The share of decisions with an error. |
+| `error_rate` | The share of decisions with an error, from the last record per decision. Kev's rate includes failed keep-warm calls. |
 
 ### Setup
 
@@ -101,40 +115,35 @@ the same options in the same order.
 - **Client:** a Mac in Malaysia. Jev and Haiku go over the internet. Kev goes over the local network.
 - **Kev server:** RTX 5070 Ti (16 GB), WSL2 Ubuntu 24.04, PyTorch 2.8.0, `KEV_PREFIX_CACHE=1`.
 - **Prices:** Jev $0.042 per 1M input tokens, output free. Haiku $0.10 per 1M input tokens and $0.50 per 1M output
-  tokens. Kev: AWS g6.xlarge (1 x L4) on-demand in us-east-1, $0.8048 per hour.
+  tokens. Kev: AWS g6.xlarge (1 x L4) on-demand in us-east-1, $0.8048 per hour ($1.0138 in ap-southeast-5, Malaysia).
 
 ## Limitations
 
-- **Haiku's probabilities are self-reported.** The Anthropic API gives no logprobs and Haiku 5.5 does not accept a
-  temperature. Haiku writes one number per option in structured output. For the router and the guardrail, the client
-  scales these numbers to sum to 1, and Haiku's Brier score measures the scaled numbers.
-- **Haiku runs at its lowest reasoning setting:** thinking disabled and effort `low`. A higher setting can change its
-  quality, latency and cost.
-- **Model time is not the same measure for each arm.** Hosted Jev returns no model time, so Jev has only end-to-end
-  time. Haiku's model time is the origin time in the `server-timing` header at the Cloudflare edge, which includes
-  Anthropic's internal network. Kev's model time is the `latency_ms` field of its server.
-- **End-to-end time depends on the location.** Jev and Haiku go from Malaysia over the internet. Kev goes over the local
-  network.
-- **Kev gets a keep-warm call.** On the test PC, Kev's model time rises from about 60 ms to about 180–290 ms after 8 s or
-  more of idle. The runner sends one unrecorded call to Kev right before each recorded call. Without it, a production
-  server with gaps between requests pays this idle penalty. With keep-warm, a few calls (about 7% in a test) still took
-  300–500 ms, and these calls can reach Kev's p95.
-- **Kev's cost is an estimate.** The throughput comes from an RTX 5070 Ti, not from the L4 in the g6.xlarge. The cost
-  assumes that the GPU is busy all the time. In ap-southeast-5 (Malaysia), the g6.xlarge costs $1.0138 per hour.
-- **Option order can change the answer.** The [TypeSafe docs](https://docs.typesafe.ai/primitives/choice) say that Jev
-  1.13 can lean toward the first option. The main run uses one fixed order for every arm. `order_stable` and
-  `order_spread` show the effect for Jev and Kev. This benchmark does not measure Haiku's option-order sensitivity.
-- **The coin sector labels are CoinGecko's current categories.** Some coins do not have a category that fits them, so an
-  arm that says yes to such a sector counts as wrong. Sectors with few coins give an unstable F1, and some sectors
-  overlap, for example governance and DeFi. The labels are from the fetch date.
-- **The query set is small.** Claude drafted the seed queries, with public example prompts for crypto data tools as a
-  guide. Haiku is also a Claude model. A model that is not Claude wrote the variations.
-- **The query set is not real user traffic.** The seeds cover each option about equally. Real users can ask for some
-  options much more often, so the accuracy here is not a production number. The set leaves out multi-step questions and
-  price predictions, because they do not have one clear label.
-- **The error rate uses the last record per decision.** An error that a rerun fixed does not count. Kev's error rate
-  includes failed keep-warm calls.
-- **This is one run on one day.** Hosted models and their latency change over time.
+### How the arms are set up
+
+| Limitation | What it means |
+|---|---|
+| **Haiku runs at its lowest setting** | Thinking is disabled and effort is `low`. A higher setting can change its quality, latency and cost. |
+| **Haiku's probabilities are self-reported** | The Anthropic API gives no logprobs. Haiku writes one number per option. For the router and guardrail, the client scales them to sum to 1, and the Brier score uses the scaled numbers. |
+| **Kev gets a keep-warm call** | On the test PC, Kev's model time rises from about 60 ms to about 180–290 ms after 8 s or more of idle. The runner sends one unrecorded call before each recorded call. A production server with gaps between requests pays this penalty. With keep-warm, about 7% of calls in a test still took 300–500 ms, which can reach Kev's p95. |
+| **Option order can change the answer** | The [TypeSafe docs](https://docs.typesafe.ai/primitives/choice) say that Jev 1.13 can lean toward the first option. The main run uses one fixed order. `order_stable` and `order_spread` show the effect for Jev and Kev, not for Haiku. |
+
+### How latency and cost are measured
+
+| Limitation | What it means |
+|---|---|
+| **Model time differs per arm** | Jev returns none, so it has only end-to-end time. Haiku's is the `server-timing` origin time at the Cloudflare edge, which includes Anthropic's internal network. Kev's is its server's `latency_ms` field. |
+| **End-to-end time depends on location** | Jev and Haiku go from Malaysia over the internet. Kev goes over the local network. |
+| **Kev's cost is an estimate** | The throughput comes from an RTX 5070 Ti, not the L4 in the g6.xlarge. The Kev README lists an L40S or H100 for Kev-4B, not an L4. The cost assumes a GPU that is always busy. |
+
+### What the data can and cannot show
+
+| Limitation | What it means |
+|---|---|
+| **The query set is small** | Claude drafted the seed queries, with public example prompts for crypto data tools as a guide. Haiku is also a Claude model. A model that is not Claude wrote the variations. |
+| **The queries are not real traffic** | The seeds cover each option about equally, so the accuracy is not a production number. The set leaves out multi-step questions and price predictions, because they do not have one clear label. |
+| **Coin sector labels are CoinGecko's categories** | Some coins have no category that fits them, so an arm that says yes to such a sector counts as wrong. Sectors with few coins give an unstable F1, and some sectors overlap, for example governance and DeFi. |
+| **This is one run on one day** | Hosted models and their latency change over time. |
 
 ## Reproduce
 
@@ -145,9 +154,9 @@ You need Python 3.12 and [uv](https://docs.astral.sh/uv/). Add your API keys to 
 | `TYPESAFE_API_KEY` | Jev |
 | `ANTHROPIC_API_KEY` | Claude Haiku 5.5 |
 | `COINGECKO_API_KEY` | `bench fetch` (CoinGecko Demo API) |
-| `KEV_BASE_URL`, `KEV_API_KEY` | Kev. Optional: start the [Kev server](https://github.com/jaredpalmer/kev) with `jaredpalmer/kev-4b`. |
+| `KEV_BASE_URL`, `KEV_API_KEY` | Kev (optional, see below) |
 
-Then run the benchmark:
+Then run the benchmark. Replace `<your GPU>` with your own hardware:
 
 ```sh
 uv sync
@@ -157,17 +166,22 @@ for node in router guardrail coin_sector; do uv run bench run --node "$node"; do
 for node in router guardrail; do uv run bench permute --node "$node"; done
 for node in router guardrail coin_sector; do uv run bench throughput --node "$node"; done
 uv run bench score
-uv run bench chart --note "Run 2026-11-03. Kev-4B on an RTX 5070 Ti."
+uv run bench chart --note "Run $(date +%F). Kev-4B on <your GPU>."
 uv run bench export
 ```
 
 Scores go to `results/scores.csv` and `results/scores.md`, charts to `results/charts/`, and the dataset to
 `dist/dataset/`.
 
-> [!IMPORTANT]
-> After a fresh start of the Kev server, do one throwaway run first, because the first calls are slow. Without the two
-> Kev settings, the commands run without Kev, and `bench throughput` does not run.
-
 > [!TIP]
 > A rerun of `bench run` or `bench permute` skips the decisions that already have a result, so you can continue after a
 > failure.
+
+### Kev needs your own server
+
+Kev is self-hosted, so you need your own GPU machine running the [Kev server](https://github.com/jaredpalmer/kev) with
+`jaredpalmer/kev-4b`. Then set `KEV_BASE_URL` and `KEV_API_KEY` on the machine that runs `bench`.
+
+> [!IMPORTANT]
+> After a fresh start of the Kev server, do one throwaway run first, because the first calls are slow. Without the two
+> Kev settings, the commands run without Kev, and `bench throughput` does not run.

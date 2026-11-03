@@ -52,8 +52,8 @@ configs:
 
 # think-fast-jev router and guardrail queries
 
-{len(queries)} user questions to a crypto market-data assistant. Each question has two labels: the data tool that can
-answer it (router) and whether the assistant may answer it (guardrail). The
+{len(queries)} user questions about crypto markets. Each question has two labels: the data tool that can answer it
+(router) and whether it may be answered (guardrail). The
 [think-fast-jev](https://github.com/amadzai/think-fast-jev) benchmark uses this set to compare single-pass decision
 models with a frontier LLM at these two decisions.
 

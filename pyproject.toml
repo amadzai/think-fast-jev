@@ -1,7 +1,7 @@
 [project]
 name = "think-fast-jev"
 version = "0.1.0"
-description = "Benchmark single-pass decision models against a frontier LLM at the decision steps of a crypto data assistant."
+description = "Benchmark single-pass decision models against a frontier LLM at the decision steps of answering crypto market questions."
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=2.3.0",

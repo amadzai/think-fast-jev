@@ -224,7 +224,7 @@ def _cost(points: list[Point], note: str) -> Figure:
         COST_ROW_HEIGHT * len(nodes) * len(arms) + COST_EXTRA_HEIGHT,
         "Cost per 1,000 decisions (USD)",
         "Cost axis is logarithmic. Jev and Haiku: list price per token. Kev-4B: AWS g6.xlarge (1 x L4) on-demand price\n"
-        "per hour, divided by the decisions per hour measured on an RTX 5070 Ti.",
+        "per hour, divided by the decisions per hour that `bench throughput` measured.",
         note,
         arms,
     )

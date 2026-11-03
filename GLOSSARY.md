@@ -1,6 +1,6 @@
 # think-fast-jev
 
-A benchmark of single-pass decision models against a frontier LLM at the decision steps of a crypto data assistant.
+A benchmark of single-pass decision models against a frontier LLM at the decision steps of answering crypto market questions.
 
 ## Language
 
@@ -17,7 +17,7 @@ An arm that tries to replace the incumbent at a decision node.
 _Avoid_: Challenger, alternative
 
 **Decision node**:
-One step of the assistant where an arm selects from a fixed set of options.
+One step where an arm selects from a fixed set of options.
 _Avoid_: Classifier, decision layer step
 
 **Option**:
@@ -33,7 +33,7 @@ The decision node that sends a user question to the one data tool that can answe
 _Avoid_: Intent classifier, dispatcher
 
 **Guardrail**:
-The decision node that decides if the assistant may answer a user question.
+The decision node that decides if a user question may be answered.
 _Avoid_: Filter, moderation, safety check
 
 **Coin sector**:
