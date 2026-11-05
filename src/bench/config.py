@@ -11,8 +11,8 @@ DEFAULT_KEV_MODEL = "kev-latest"
 KEV_ARM = "kev"
 DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com"
 DEFAULT_HAIKU_MODEL = "claude-haiku-5-5"
-# Haiku has no logprobs and no temperature setting, so each item runs 3 times to measure agreement.
-HAIKU_REPEATS = 3
+# An LLM arm has no logprobs and no temperature setting, so each item runs 3 times to measure agreement.
+LLM_REPEATS = 3
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai"
 # The generator is neither Claude nor Qwen. This model supports structured outputs on OpenRouter.
 DEFAULT_GENERATOR_MODEL = "google/gemini-3.8-flash"
@@ -110,7 +110,7 @@ def haiku_config() -> ArmConfig:
         base_url=os.environ.get("ANTHROPIC_BASE_URL", DEFAULT_ANTHROPIC_BASE_URL),
         api_key=api_key,
         model=os.environ.get("HAIKU_MODEL", DEFAULT_HAIKU_MODEL),
-        repeats=HAIKU_REPEATS,
+        repeats=LLM_REPEATS,
     )
 
 

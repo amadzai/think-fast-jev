@@ -1,5 +1,6 @@
 """This module defines what every arm client returns, and the errors that the runner and the CLI handle."""
 
+import json
 from dataclasses import dataclass
 from typing import Any, Protocol, Self
 
@@ -15,6 +16,8 @@ YES_THRESHOLD = 0.5
 TIMEOUT_S = 30.0
 # A short connect timeout gives a fast, clear error when the Kev PC is off or its IP address changed.
 CONNECT_TIMEOUT_S = 5.0
+# A sum this close to 1 does not count as scaled.
+SUM_TOLERANCE = 1e-6
 
 
 class ArmResponseError(Exception):
@@ -74,6 +77,29 @@ def in_option_order(node: Node, values: object, raw: str) -> dict[str, Any]:
     if not isinstance(values, dict) or set(values) != set(node.options):
         raise ArmResponseError(f"answer has no probability for each option: {raw[:ERROR_BODY_CHARS]}")
     return {name: values[name] for name in node.options}
+
+
+def scaled_probabilities(node: Node, text: str) -> tuple[dict[str, float], bool | None]:
+    """Read an LLM's structured output and scale the probabilities to sum 1. Also return True if they needed it.
+
+    A multi-label node has one yes/no question per option. The function does not scale its probabilities and
+    returns None for the flag.
+    """
+    try:
+        data = json.loads(text)
+    except ValueError as error:
+        raise ArmResponseError(f"output is not JSON: {text[:ERROR_BODY_CHARS]}") from error
+    values = in_option_order(node, data, text)
+    if any(not isinstance(v, int | float) or isinstance(v, bool) or v < 0 for v in values.values()):
+        raise ArmResponseError(f"output has a probability that is not a number of 0 or more: {text[:ERROR_BODY_CHARS]}")
+    if node.multi_label:
+        if any(v > 1 for v in values.values()):
+            raise ArmResponseError(f"output has a probability over 1: {text[:ERROR_BODY_CHARS]}")
+        return {name: float(v) for name, v in values.items()}, None
+    total = sum(values.values())
+    if total <= 0:
+        raise ArmResponseError("all probabilities are 0")
+    return {name: v / total for name, v in values.items()}, abs(total - 1) > SUM_TOLERANCE
 
 
 def argmax(probabilities: dict[str, float]) -> str:

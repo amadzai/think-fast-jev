@@ -1,6 +1,5 @@
 """Haiku uses this client to call the Anthropic Messages API with structured output."""
 
-import json
 import re
 import time
 from typing import Any, Self
@@ -9,7 +8,7 @@ import anthropic
 import httpx2
 from anthropic.types import ThinkingConfigDisabledParam
 
-from bench.arm import CONNECT_TIMEOUT_S, ERROR_BODY_CHARS, TIMEOUT_S, Answer, ArmResponseError, in_option_order
+from bench.arm import CONNECT_TIMEOUT_S, TIMEOUT_S, Answer, ArmResponseError, scaled_probabilities
 from bench.config import ArmConfig
 from bench.nodes import Node
 
@@ -20,8 +19,6 @@ THINKING: ThinkingConfigDisabledParam = {"type": "disabled"}
 EFFORT = "low"
 # Cloudflare reports the time that Anthropic's servers took (it does not include the network to the edge).
 ORIGIN_TIME = re.compile(r"x-originResponse;dur=([0-9.]+)")
-# A sum this close to 1 does not count as scaled.
-SUM_TOLERANCE = 1e-6
 
 
 class AnthropicClient:
@@ -69,7 +66,7 @@ class AnthropicClient:
         if message.stop_reason != "end_turn":
             raise ArmResponseError(f"stop_reason {message.stop_reason!r}, not 'end_turn'")
         text = next((block.text for block in message.content if block.type == "text"), "")
-        probabilities, normalised = _scaled(node, text)
+        probabilities, normalised = scaled_probabilities(node, text)
         origin = ORIGIN_TIME.search(raw.headers.get("server-timing", ""))
         return Answer(
             probabilities=probabilities,
@@ -80,26 +77,3 @@ class AnthropicClient:
             output_tokens=message.usage.output_tokens,
             normalised=normalised,
         )
-
-
-def _scaled(node: Node, text: str) -> tuple[dict[str, float], bool | None]:
-    """Read the structured output and scale the probabilities to sum 1. Also return True if they needed it.
-
-    A multi-label node has one yes/no question per option. The function does not scale its probabilities and
-    returns None for the flag.
-    """
-    try:
-        data = json.loads(text)
-    except ValueError as error:
-        raise ArmResponseError(f"output is not JSON: {text[:ERROR_BODY_CHARS]}") from error
-    values = in_option_order(node, data, text)
-    if any(not isinstance(v, int | float) or isinstance(v, bool) or v < 0 for v in values.values()):
-        raise ArmResponseError(f"output has a probability that is not a number of 0 or more: {text[:ERROR_BODY_CHARS]}")
-    if node.multi_label:
-        if any(v > 1 for v in values.values()):
-            raise ArmResponseError(f"output has a probability over 1: {text[:ERROR_BODY_CHARS]}")
-        return {name: float(v) for name, v in values.items()}, None
-    total = sum(values.values())
-    if total <= 0:
-        raise ArmResponseError("all probabilities are 0")
-    return {name: v / total for name, v in values.items()}, abs(total - 1) > SUM_TOLERANCE
