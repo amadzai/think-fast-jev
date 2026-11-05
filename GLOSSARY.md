@@ -1,6 +1,6 @@
 # think-fast-jev
 
-A benchmark of single-pass decision models against a frontier LLM at the decision steps of answering crypto market questions.
+A benchmark of single-pass decision models against LLMs at the decision steps of answering crypto market questions.
 
 ## Language
 
@@ -9,11 +9,11 @@ One system under test in the benchmark.
 _Avoid_: Variant, variant A/B, model under test
 
 **Incumbent**:
-The frontier LLM arm that the candidates try to replace.
+An LLM arm that the candidates try to replace. A benchmark can have more than one.
 _Avoid_: Baseline, control
 
 **Candidate**:
-An arm that tries to replace the incumbent at a decision node.
+An arm that tries to replace the incumbents at a decision node.
 _Avoid_: Challenger, alternative
 
 **Decision node**:
