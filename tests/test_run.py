@@ -1,6 +1,7 @@
 import json
 import threading
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import httpx
@@ -11,6 +12,7 @@ from bench.anthropic_client import AnthropicClient
 from bench.coins import DESCRIPTION_MAX_CHARS, Coin
 from bench.config import ArmConfig
 from bench.nodes import COIN_SECTOR, ROUTER
+from bench.openai_client import OpenAIClient
 from bench.permute import permute_node
 from bench.queries import Query
 from bench.run import KEEP_WARM_ERROR_PREFIX, KEEP_WARM_STATE, append_run_metadata, run_node
@@ -32,6 +34,14 @@ HAIKU = ArmConfig(
     base_url="https://anthropic.test",
     api_key="test-key",
     model="claude-haiku-5-5",
+    repeats=3,
+)
+LUNA = ArmConfig(
+    name="luna",
+    kind="openai",
+    base_url="https://openai.test/v1",
+    api_key="test-key",
+    model="gpt-6-luna",
     repeats=3,
 )
 PROBABILITIES = {name: 0.0 for name in ROUTER.options} | {"price": 0.9, "market_chart": 0.1}
@@ -259,6 +269,102 @@ def test_haiku_runs_three_repeats_per_query_with_normalised_probabilities(tmp_pa
     haiku_meta = json.loads(out.with_suffix(".meta.json").read_text())["runs"][0]["arms"]["haiku"]
     assert haiku_meta["request_settings"]["thinking"] == {"type": "disabled"}
     assert haiku_meta["models_before"]["created_at"] == "2026-09-01T00:00:00Z"
+
+
+# The shape of a Chat Completions response with structured output. The probabilities sum to 1.1.
+LUNA_RECORDED = {
+    "id": "chatcmpl_test",
+    "object": "chat.completion",
+    "created": 1790100786,
+    "model": "gpt-6-luna",
+    "service_tier": "default",
+    "choices": [
+        {
+            "index": 0,
+            "finish_reason": "stop",
+            "message": {
+                "role": "assistant",
+                "refusal": None,
+                "content": json.dumps({name: 0.0 for name in ROUTER.options} | {"price": 0.66, "market_chart": 0.44}),
+            },
+        }
+    ],
+    "usage": {"prompt_tokens": 1015, "completion_tokens": 146, "total_tokens": 1161},
+}
+LUNA_MODEL = {"id": "gpt-6-luna", "object": "model", "created": 1789406102, "owned_by": "system"}
+
+
+def fake_openai(seen: list, recorded: dict = LUNA_RECORDED) -> httpx2.MockTransport:
+    """Answer POST /v1/chat/completions with `recorded` and GET /v1/models/<id> with LUNA_MODEL."""
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if request.method == "GET":
+            return httpx2.Response(200, json=LUNA_MODEL)
+        seen.append(json.loads(request.content))
+        return httpx2.Response(200, json=recorded, headers={"openai-processing-ms": "812"})
+
+    return httpx2.MockTransport(handler)
+
+
+def test_luna_runs_three_repeats_per_query_with_normalised_probabilities(tmp_path: Path) -> None:
+    # Arrange
+    requests: list = []
+    out = tmp_path / "router.jsonl"
+
+    # Act
+    with OpenAIClient(LUNA, transport=fake_openai(requests)) as luna:
+        summary = run_node(ROUTER, QUERIES[:1], {"luna": luna}, out)
+    append_run_metadata(out, summary, Path("queries.jsonl"))
+
+    # Assert
+    records = [json.loads(line) for line in out.read_text().splitlines()]
+    assert [(r["arm"], r["repeat"]) for r in records] == [("luna", 1), ("luna", 2), ("luna", 3)]
+    record = records[0]
+    assert record["selected"] == "price"
+    assert record["probabilities"]["price"] == pytest.approx(0.6)
+    assert record["normalised"] is True
+    assert record["model_version"] == "gpt-6-luna"
+    assert (record["model_ms"], record["input_tokens"], record["output_tokens"]) == (812.0, 1015, 146)
+    body = requests[0]
+    assert body["model"] == "gpt-6-luna"
+    assert body["service_tier"] == "default"
+    assert body["messages"] == [
+        {"role": "system", "content": ROUTER.chat_system_prompt()},
+        {"role": "user", "content": "What is the price of ETH?"},
+    ]
+    assert body["response_format"]["json_schema"]["strict"] is True
+    assert set(body["response_format"]["json_schema"]["schema"]["required"]) == set(ROUTER.options)
+    assert "temperature" not in body
+    luna_meta = json.loads(out.with_suffix(".meta.json").read_text())["runs"][0]["arms"]["luna"]
+    assert luna_meta["request_settings"]["service_tier"] == "default"
+    assert luna_meta["models_before"]["owned_by"] == "system"
+
+
+@pytest.mark.parametrize(
+    ("change", "error_text"),
+    [
+        ({"finish_reason": "length"}, "finish_reason"),
+        ({"message": {"role": "assistant", "refusal": "No.", "content": None}}, "refus"),
+        ({"message": {"role": "assistant", "refusal": None, "content": "not json"}}, "not JSON"),
+        ({"message": {"role": "assistant", "refusal": None, "content": '{"price": 1.0}'}}, "each option"),
+    ],
+)
+def test_bad_luna_response_becomes_an_error_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: dict, error_text: str
+) -> None:
+    # Arrange
+    monkeypatch.setattr("bench.run.time.sleep", lambda _: None)
+    bad = LUNA_RECORDED | {"choices": [LUNA_RECORDED["choices"][0] | change]}
+    out = tmp_path / "router.jsonl"
+
+    # Act
+    with OpenAIClient(replace(LUNA, repeats=1), transport=fake_openai([], bad)) as luna:
+        run_node(ROUTER, QUERIES[:1], {"luna": luna}, out)
+
+    # Assert
+    record = json.loads(out.read_text().splitlines()[-1])
+    assert record["selected"] is None
+    assert error_text in record["error"]
 
 
 COIN = Coin(

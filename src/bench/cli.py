@@ -35,6 +35,7 @@ from bench.generate import (
     load_generations,
 )
 from bench.nodes import COIN_SECTOR, NODES, SECTORS, Node
+from bench.openai_client import OpenAIClient
 from bench.permute import MAX_PERMUTATIONS, PERMUTATIONS, Permutation, load_permutations, permutation_path, permute_node
 from bench.queries import QueryFileError, load_queries
 from bench.run import (
@@ -92,6 +93,8 @@ def check() -> None:
 def _client(config: ArmConfig) -> ArmClient:
     if config.kind == "anthropic":
         return AnthropicClient(config)
+    if config.kind == "openai":
+        return OpenAIClient(config)
     return SystemOneClient(config)
 
 

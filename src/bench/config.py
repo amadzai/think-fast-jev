@@ -13,6 +13,8 @@ DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com"
 DEFAULT_HAIKU_MODEL = "claude-haiku-5-5"
 # An LLM arm has no logprobs and no temperature setting, so each item runs 3 times to measure agreement.
 LLM_REPEATS = 3
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_LUNA_MODEL = "gpt-6-luna"
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai"
 # The generator is neither Claude nor Qwen. This model supports structured outputs on OpenRouter.
 DEFAULT_GENERATOR_MODEL = "google/gemini-3.8-flash"
@@ -34,6 +36,8 @@ PRICES = {
     DEFAULT_JEV_MODEL: Price(input_per_1m=0.042, output_per_1m=0.0),
     # Through the Anthropic API, prompts up to 100K tokens.
     DEFAULT_HAIKU_MODEL: Price(input_per_1m=0.10, output_per_1m=0.50),
+    # Through the OpenAI API, standard tier, prompts up to 272K tokens.
+    DEFAULT_LUNA_MODEL: Price(input_per_1m=0.10, output_per_1m=0.50),
 }
 
 # Self-hosted Kev: the on-demand price of an AWS g6.xlarge (1 NVIDIA L4) in us-east-1, USD per hour.
@@ -49,8 +53,8 @@ class ArmConfig:
     """Connection settings for one arm."""
 
     name: str
-    # "system_one" for Jev and Kev, "anthropic" for Haiku.
-    kind: Literal["system_one", "anthropic"]
+    # "system_one" for Jev and Kev, "anthropic" for Haiku, "openai" for Luna.
+    kind: Literal["system_one", "anthropic", "openai"]
     base_url: str
     api_key: str
     model: str
@@ -114,6 +118,21 @@ def haiku_config() -> ArmConfig:
     )
 
 
+def luna_config() -> ArmConfig:
+    # Luna is an incumbent, so a run without it is not the full comparison.
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        raise ConfigError("OPENAI_API_KEY is not set. Add it to .env (get a key at platform.openai.com).")
+    return ArmConfig(
+        name="luna",
+        kind="openai",
+        base_url=os.environ.get("OPENAI_BASE_URL", DEFAULT_OPENAI_BASE_URL),
+        api_key=api_key,
+        model=os.environ.get("LUNA_MODEL", DEFAULT_LUNA_MODEL),
+        repeats=LLM_REPEATS,
+    )
+
+
 @dataclass(frozen=True)
 class GeneratorConfig:
     """Settings for the model that writes query variations (`bench generate`)."""
@@ -152,10 +171,10 @@ def coingecko_config() -> CoinGeckoConfig:
 
 
 def arm_configs() -> list[ArmConfig]:
-    """Return Jev, Kev when it is configured, and Haiku."""
+    """Return Jev, Kev when it is configured, Haiku and Luna."""
     jev = jev_config()
     kev = kev_config()
-    haiku = haiku_config()
+    incumbents = [haiku_config(), luna_config()]
     if kev is None:
-        return [jev, haiku]
-    return [jev, kev, haiku]
+        return [jev, *incumbents]
+    return [jev, kev, *incumbents]

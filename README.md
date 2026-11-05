@@ -246,6 +246,7 @@ You need Python 3.12 and [uv](https://docs.astral.sh/uv/). Add your API keys to 
 |---|---|
 | `TYPESAFE_API_KEY` | Jev |
 | `ANTHROPIC_API_KEY` | Claude Haiku 5.5 |
+| `OPENAI_API_KEY` | GPT-6 Luna |
 | `KEV_BASE_URL`, `KEV_API_KEY` | Kev (optional, see below) |
 
 Then run the benchmark. Replace `<your GPU>` with your own hardware:

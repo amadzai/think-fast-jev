@@ -6,6 +6,7 @@ from typing import Any, Protocol, Self
 
 import anthropic
 import httpx
+import openai
 
 from bench.config import ArmConfig
 from bench.nodes import Node
@@ -25,9 +26,9 @@ class ArmResponseError(Exception):
 
 
 # A call that fails with one of these is retried, then written as an error record.
-CALL_ERRORS = (httpx.HTTPError, anthropic.APIError, ArmResponseError)
+CALL_ERRORS = (httpx.HTTPError, anthropic.APIError, openai.APIError, ArmResponseError)
 # A call that fails with one of these did not reach the server.
-UNREACHABLE_ERRORS = (httpx.TransportError, anthropic.APIConnectionError)
+UNREACHABLE_ERRORS = (httpx.TransportError, anthropic.APIConnectionError, openai.APIConnectionError)
 
 
 @dataclass(frozen=True)
@@ -67,7 +68,7 @@ def describe_error(error: Exception) -> str:
     """Return a short message for a failed call."""
     if isinstance(error, httpx.HTTPStatusError):
         return f"HTTP {error.response.status_code}: {error.response.text[:ERROR_BODY_CHARS]}"
-    if isinstance(error, anthropic.APIStatusError):
+    if isinstance(error, anthropic.APIStatusError | openai.APIStatusError):
         return f"HTTP {error.status_code}: {error.message[:ERROR_BODY_CHARS]}"
     return f"{type(error).__name__}: {error}"
 
