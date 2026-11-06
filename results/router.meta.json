@@ -2,9 +2,9 @@
   "runs": [
     {
       "node": "router",
-      "started": "2026-11-03T07:49:08.457099+00:00",
-      "finished": "2026-11-03T08:04:13.353052+00:00",
-      "written": 750,
+      "started": "2026-11-06T08:58:51.500454+00:00",
+      "finished": "2026-11-06T09:31:04.070482+00:00",
+      "written": 1440,
       "errors": 0,
       "skipped": 0,
       "arms": {
@@ -47,7 +47,7 @@
           }
         },
         "kev": {
-          "base_url": "http://192.168.1.7:8009",
+          "base_url": "http://192.168.1.11:8009",
           "model": "kev-latest",
           "repeats": 1,
           "keep_warm": true,
@@ -81,13 +81,13 @@
                   "min_state_tokens": 0,
                   "max_tokens": 65536,
                   "hits": 0,
-                  "misses": 21,
+                  "misses": 31,
                   "cached_states": 1,
                   "oom_retries": 0
                 },
                 "batches": {
-                  "count": 21,
-                  "requests": 21,
+                  "count": 31,
+                  "requests": 31,
                   "queued": 0
                 }
               },
@@ -115,13 +115,13 @@
                   "min_state_tokens": 0,
                   "max_tokens": 65536,
                   "hits": 0,
-                  "misses": 21,
+                  "misses": 31,
                   "cached_states": 1,
                   "oom_retries": 0
                 },
                 "batches": {
-                  "count": 21,
-                  "requests": 21,
+                  "count": 31,
+                  "requests": 31,
                   "queued": 0
                 }
               }
@@ -153,13 +153,13 @@
                   "min_state_tokens": 0,
                   "max_tokens": 65536,
                   "hits": 0,
-                  "misses": 321,
+                  "misses": 391,
                   "cached_states": 1,
                   "oom_retries": 0
                 },
                 "batches": {
-                  "count": 321,
-                  "requests": 321,
+                  "count": 391,
+                  "requests": 391,
                   "queued": 0
                 }
               },
@@ -187,13 +187,13 @@
                   "min_state_tokens": 0,
                   "max_tokens": 65536,
                   "hits": 0,
-                  "misses": 321,
+                  "misses": 391,
                   "cached_states": 1,
                   "oom_retries": 0
                 },
                 "batches": {
-                  "count": 321,
-                  "requests": 321,
+                  "count": 391,
+                  "requests": 391,
                   "queued": 0
                 }
               }
@@ -391,6 +391,34 @@
             "retires_at": null,
             "type": "model"
           }
+        },
+        "luna": {
+          "base_url": "https://api.openai.com/v1",
+          "model": "gpt-6-luna",
+          "repeats": 3,
+          "keep_warm": false,
+          "request_settings": {
+            "reasoning_effort": "none",
+            "service_tier": "default",
+            "max_tokens": 1024
+          },
+          "versions": [
+            "gpt-6-luna"
+          ],
+          "models_before": {
+            "id": "gpt-6-luna",
+            "created": 1789406102,
+            "object": "model",
+            "owned_by": "system",
+            "shutdown_date": null
+          },
+          "models_after": {
+            "id": "gpt-6-luna",
+            "created": 1789406102,
+            "object": "model",
+            "owned_by": "system",
+            "shutdown_date": null
+          }
         }
       },
       "items": "data/queries.jsonl",
@@ -406,11 +434,11 @@
       "arm": "kev",
       "model": "kev-latest",
       "node": "router",
-      "started": "2026-11-03T08:46:05.623941+00:00",
+      "started": "2026-11-06T09:36:57.169963+00:00",
       "concurrency": 32,
-      "requests": 450,
-      "seconds": 15.989124917192385,
-      "decisions_per_hour": 101318.86569089764,
+      "requests": 540,
+      "seconds": 19.892034833086655,
+      "decisions_per_hour": 97727.55860886197,
       "models_before": {
         "models": [
           {
@@ -427,23 +455,23 @@
             "max_state_tokens": 65536,
             "truncate_states": false,
             "cuda_graphs": {
-              "captured": 37,
-              "kept": 37,
+              "captured": 14,
+              "kept": 14,
               "pending": 0,
-              "failed": 12
+              "failed": 10
             },
             "prefix_cache": {
               "size": 1,
               "min_state_tokens": 0,
               "max_tokens": 65536,
-              "hits": 1500,
-              "misses": 1723,
+              "hits": 900,
+              "misses": 1111,
               "cached_states": 1,
               "oom_retries": 0
             },
             "batches": {
-              "count": 2799,
-              "requests": 3223,
+              "count": 1502,
+              "requests": 2011,
               "queued": 0
             }
           },
@@ -461,23 +489,23 @@
             "max_state_tokens": 65536,
             "truncate_states": false,
             "cuda_graphs": {
-              "captured": 37,
-              "kept": 37,
+              "captured": 14,
+              "kept": 14,
               "pending": 0,
-              "failed": 12
+              "failed": 10
             },
             "prefix_cache": {
               "size": 1,
               "min_state_tokens": 0,
               "max_tokens": 65536,
-              "hits": 1500,
-              "misses": 1723,
+              "hits": 900,
+              "misses": 1111,
               "cached_states": 1,
               "oom_retries": 0
             },
             "batches": {
-              "count": 2799,
-              "requests": 3223,
+              "count": 1502,
+              "requests": 2011,
               "queued": 0
             }
           }
@@ -499,23 +527,23 @@
             "max_state_tokens": 65536,
             "truncate_states": false,
             "cuda_graphs": {
-              "captured": 38,
-              "kept": 38,
+              "captured": 18,
+              "kept": 18,
               "pending": 0,
-              "failed": 13
+              "failed": 10
             },
             "prefix_cache": {
               "size": 1,
               "min_state_tokens": 0,
               "max_tokens": 65536,
-              "hits": 1500,
-              "misses": 2173,
+              "hits": 900,
+              "misses": 1651,
               "cached_states": 1,
               "oom_retries": 0
             },
             "batches": {
-              "count": 2830,
-              "requests": 3673,
+              "count": 1537,
+              "requests": 2551,
               "queued": 0
             }
           },
@@ -533,23 +561,23 @@
             "max_state_tokens": 65536,
             "truncate_states": false,
             "cuda_graphs": {
-              "captured": 38,
-              "kept": 38,
+              "captured": 18,
+              "kept": 18,
               "pending": 0,
-              "failed": 13
+              "failed": 10
             },
             "prefix_cache": {
               "size": 1,
               "min_state_tokens": 0,
               "max_tokens": 65536,
-              "hits": 1500,
-              "misses": 2173,
+              "hits": 900,
+              "misses": 1651,
               "cached_states": 1,
               "oom_retries": 0
             },
             "batches": {
-              "count": 2830,
-              "requests": 3673,
+              "count": 1537,
+              "requests": 2551,
               "queued": 0
             }
           }

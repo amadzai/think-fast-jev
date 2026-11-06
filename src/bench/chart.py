@@ -1,6 +1,7 @@
 """This module draws the README charts from the metrics table of `bench score` (`scores.csv`)."""
 
 import csv
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
@@ -65,6 +66,10 @@ LATENCY_EXTRA_HEIGHT = 1.8
 COST_EXTRA_HEIGHT = 2.2
 # Text offsets from a dot, in points: the value above a latency dot, and to the right of a cost dot.
 ABOVE_DOT = (0, 9)
+BELOW_DOT = (0, -9)
+# A dot this close below another dot puts its value under the dot, so the two labels do not overlap.
+NEAR_LATENCY_DECADES = 0.15
+NEAR_QUALITY = 0.03
 RIGHT_OF_DOT = (8, 0)
 # The cost axis gets this much more room on the right, for the value labels.
 COST_RIGHT_ROOM = 3
@@ -220,16 +225,33 @@ def _quality_latency(points: list[Point], note: str) -> Figure:
         )
         axes.set_ylabel(f"{quality_name} (higher is better)", color=TEXT_SECONDARY, fontsize=FONT_SIZE)
         axes.set_title(_node_title(node), loc="left", fontsize=FONT_SIZE + 1, color=TEXT_PRIMARY)
-        for p in (p for p in points if p.node == node):
-            if p.quality is None or p.e2e_p50 is None:
-                continue
+        drawn = [p for p in points if p.node == node and p.quality is not None and p.e2e_p50 is not None]
+        for p in drawn:
+            assert p.quality is not None and p.e2e_p50 is not None
             if p.e2e_p95 is not None:
                 axes.plot([p.e2e_p50, p.e2e_p95], [p.quality, p.quality], color=ARMS[p.arm].color, linewidth=LINE_WIDTH)
-            _dot(axes, p.e2e_p50, p.quality, p.arm, f"{p.quality:.2f}", ABOVE_DOT, ha="center", va="bottom")
+            if _just_below_another(p, drawn):
+                _dot(axes, p.e2e_p50, p.quality, p.arm, f"{p.quality:.2f}", BELOW_DOT, ha="center", va="top")
+            else:
+                _dot(axes, p.e2e_p50, p.quality, p.arm, f"{p.quality:.2f}", ABOVE_DOT, ha="center", va="bottom")
     panels[0].set_ylim(max(0.0, lowest - QUALITY_MARGIN), QUALITY_TOP)
     panels[0].yaxis.set_major_locator(MultipleLocator(QUALITY_TICK))
     panels[0].yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
     return figure
+
+
+# shortcut: handles two close dots only. With three, the middle label can overlap the lowest dot. Fix when a chart shows it.
+def _just_below_another(p: Point, others: list[Point]) -> bool:
+    assert p.quality is not None and p.e2e_p50 is not None
+    return any(
+        o is not p
+        and o.quality is not None
+        and o.e2e_p50 is not None
+        and 0 <= o.quality - p.quality < NEAR_QUALITY
+        and abs(math.log10(o.e2e_p50 / p.e2e_p50)) < NEAR_LATENCY_DECADES
+        and (o.quality, o.arm) > (p.quality, p.arm)
+        for o in others
+    )
 
 
 def _cost(points: list[Point], note: str) -> Figure:
