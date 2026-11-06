@@ -16,6 +16,8 @@ from bench.nodes import NODES
 
 class ArmStyle(NamedTuple):
     label: str
+    # The row label on the cost chart. The legend above it has the full label.
+    short: str
     color: str
 
 
@@ -23,10 +25,10 @@ class ArmStyle(NamedTuple):
 # green has less than 3:1 contrast on the surface, so each dot has its value as a text label, and the README has the
 # table.
 ARMS = {
-    "jev": ArmStyle("Jev (hosted)", "#2a78d6"),
-    "kev": ArmStyle("Kev-4B (self-hosted)", "#eb6834"),
-    "haiku": ArmStyle("Claude Haiku 5.5 (incumbent)", "#1baf7a"),
-    "luna": ArmStyle("GPT-6 Luna (incumbent)", "#c43b8f"),
+    "jev": ArmStyle("Jev", "Jev", "#2a78d6"),
+    "kev": ArmStyle("Kev-4B", "Kev-4B", "#eb6834"),
+    "haiku": ArmStyle("Claude Haiku 5.5", "Haiku", "#1baf7a"),
+    "luna": ArmStyle("GPT-6 Luna", "Luna", "#c43b8f"),
 }
 SURFACE = "#fcfcfb"
 TEXT_PRIMARY = "#0b0b0b"
@@ -285,7 +287,10 @@ def _cost(points: list[Point], note: str) -> Figure:
                 )  # fmt: skip
                 continue
             _dot(axes, p.cost_per_1k, row, arm, f"${p.cost_per_1k:.3g}", RIGHT_OF_DOT, ha="left", va="center")
-        axes.set_yticks([])
+        axes.set_yticks(range(len(arms)), [ARMS[arm].short for arm in arms])
+        axes.tick_params(axis="y", length=0)
+        for tick, arm in zip(axes.get_yticklabels(), arms, strict=True):
+            tick.set_color(ARMS[arm].color)
         axes.set_ylim(len(arms) - 0.5, -0.5)
         axes.set_xlabel(
             "USD per 1,000 decisions (log scale, further left is cheaper)", color=TEXT_SECONDARY, fontsize=FONT_SIZE
