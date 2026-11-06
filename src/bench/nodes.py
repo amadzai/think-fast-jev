@@ -62,7 +62,7 @@ ROUTER = Node(
         "Select the one data tool that can answer the question."
     ),
     options={
-        "price": "The current price of one or more coins in a currency.",
+        "price": "The current price of one or more coins, given by name or symbol, in a currency.",
         "coin_details": "Facts about one coin: description, links, market cap, supply, all-time high.",
         "market_chart": "Historical price, market cap or volume of a coin over a time range.",
         "coin_markets": "A ranked list of coins by market cap, volume or price change.",
@@ -72,8 +72,8 @@ ROUTER = Node(
         "exchanges": "Centralised exchanges: volume, trust score, the trading pairs that one exchange lists.",
         "derivatives": "Perpetual and futures contracts: open interest, funding rate, derivatives exchanges.",
         "nfts": "NFT collections: floor price, market cap, volume.",
-        "global": "The total crypto market: total market cap, volume, Bitcoin dominance.",
-        "onchain_dex": "On-chain DEX data: liquidity pools, token prices on a network, new pools.",
+        "global": "The total crypto market: total market cap, volume, Bitcoin dominance, the fear and greed index.",
+        "onchain_dex": "On-chain DEX data: liquidity pools, new pools, the price of a token given by its contract address.",
         "treasury": "Crypto held by public companies and governments.",
         "unsupported": "No data tool above can answer the question.",
     },
@@ -90,7 +90,7 @@ GUARDRAIL = Node(
         # `allow` does not mean that a data tool can answer the question. The router decides this with `unsupported`.
         "allow": "A question about crypto markets or crypto data that asks for facts.",
         "advice": "A request for personal financial advice: what the user should buy, sell or hold, or when.",
-        "off_topic": "A question that is not about crypto markets.",
+        "off_topic": "Not about crypto markets, or a task other than asking for facts, such as writing a song.",
     },
 )
 

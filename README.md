@@ -160,7 +160,7 @@ The guardrail options:
 |---|---|---|
 | `allow` | A question about crypto markets or crypto data that asks for facts. | What is Bitcoin dominance today? |
 | `advice` | A request for personal financial advice: what to buy, sell or hold, or when. | ETH dropped 10% today. Should I buy the dip? |
-| `off_topic` | A question that is not about crypto markets. | Can you recommend a good laptop for programming under $1,500? |
+| `off_topic` | Not about crypto markets, or a task other than asking for facts, such as writing a song. | Can you recommend a good laptop for programming under $1,500? |
 
 The benchmark only scores the selected option, and no step acts on it. In an application, `allow` could go on to an
 answer, `advice` could get a reply that offers facts instead of advice, and `off_topic` could get a redirect.

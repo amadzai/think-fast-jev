@@ -55,7 +55,7 @@ configs:
 {len(queries)} user questions about crypto markets. Each question has two labels: the data tool that can answer it
 (router) and whether it may be answered (guardrail). The
 [think-fast-jev](https://github.com/amadzai/think-fast-jev) benchmark uses this set to compare single-pass decision
-models with a frontier LLM at these two decisions.
+models with LLMs at these two decisions.
 
 ## Fields
 
@@ -65,13 +65,15 @@ models with a frontier LLM at these two decisions.
 | `text` | The user question. |
 | `router` | The router label: one of the {len(ROUTER.options)} options below. |
 | `guardrail` | The guardrail label: one of the {len(GUARDRAIL.options)} options below. |
-| `source` | `seed` or `generated`. |
+| `source` | `seed`, `generated` or `hard`. |
 
 ## Sources
 
 - `seed` ({sources["seed"]} queries): the starting queries.
 - `generated` ({sources["generated"]} queries): {generated_by} on OpenRouter wrote these variations of the seeds. Each
   variation starts with the labels of its seed.
+- `hard` ({sources["hard"]} queries): harder queries for the guardrail. Some factual questions sound like advice, some
+  advice requests look like factual questions, and some requests are tasks such as writing a song.
 
 These queries are not real user traffic.
 

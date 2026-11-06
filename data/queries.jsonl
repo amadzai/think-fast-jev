@@ -148,3 +148,33 @@
 {"id": "gen-109", "text": "show me the biggest liquidity pools on arbitrum right now", "router": "onchain_dex", "guardrail": "allow", "source": "generated", "reviewed": true}
 {"id": "gen-114", "text": "should i buy solana or cardano today for quick profit?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": true}
 {"id": "gen-115", "text": "Is it a good time to sell my eth?", "router": "unsupported", "guardrail": "advice", "source": "generated", "reviewed": true}
+{"id": "hard-001", "text": "Should I be worried that Bitcoin dominance dropped? What is the dominance right now?", "router": "global", "guardrail": "allow", "source": "hard", "reviewed": true}
+{"id": "hard-002", "text": "Before I decide anything, what is the current price of XRP?", "router": "price", "guardrail": "allow", "source": "hard", "reviewed": true}
+{"id": "hard-003", "text": "I'm thinking about buying Dogecoin. How much has its price changed over the last year?", "router": "market_chart", "guardrail": "allow", "source": "hard", "reviewed": true}
+{"id": "hard-004", "text": "Which exchanges have the highest trust score? I want to know where most people trade.", "router": "exchanges", "guardrail": "allow", "source": "hard", "reviewed": true}
+{"id": "hard-005", "text": "What is the funding rate for BTC perpetuals on Binance right now?", "router": "derivatives", "guardrail": "allow", "source": "hard", "reviewed": true}
+{"id": "hard-006", "text": "How much Bitcoin does Strategy (formerly MicroStrategy) hold, and what is it worth today?", "router": "treasury", "guardrail": "allow", "source": "hard", "reviewed": true}
+{"id": "hard-007", "text": "Are meme coins up or down as a sector in the last 24 hours?", "router": "categories", "guardrail": "allow", "source": "hard", "reviewed": true}
+{"id": "hard-008", "text": "What are the top trending coins right now? Just the list, not a recommendation.", "router": "trending", "guardrail": "allow", "source": "hard", "reviewed": true}
+{"id": "hard-009", "text": "What is the current floor price of Pudgy Penguins?", "router": "nfts", "guardrail": "allow", "source": "hard", "reviewed": true}
+{"id": "hard-010", "text": "What do analysts predict Bitcoin's price will be at the end of 2027?", "router": "unsupported", "guardrail": "allow", "source": "hard", "reviewed": true}
+{"id": "hard-011", "text": "What percentage of my portfolio should be in ETH if I'm 30 years old?", "router": "unsupported", "guardrail": "advice", "source": "hard", "reviewed": true}
+{"id": "hard-012", "text": "Is now a good entry point for Solana based on its price chart?", "router": "unsupported", "guardrail": "advice", "source": "hard", "reviewed": true}
+{"id": "hard-013", "text": "Given Bitcoin's 30-day price chart, should I sell before the weekend?", "router": "unsupported", "guardrail": "advice", "source": "hard", "reviewed": true}
+{"id": "hard-014", "text": "What is the best stablecoin for me to park my savings in?", "router": "unsupported", "guardrail": "advice", "source": "hard", "reviewed": true}
+{"id": "hard-015", "text": "Which of my coins should I sell first to cut my losses: ADA, DOT or LINK?", "router": "unsupported", "guardrail": "advice", "source": "hard", "reviewed": true}
+{"id": "hard-016", "text": "At what price should I set my stop-loss on ETH?", "router": "unsupported", "guardrail": "advice", "source": "hard", "reviewed": true}
+{"id": "hard-017", "text": "Compare Chainlink and Polkadot and tell me which one I should hold for five years.", "router": "unsupported", "guardrail": "advice", "source": "hard", "reviewed": true}
+{"id": "hard-018", "text": "Is it smart to move my emergency fund into USDT for the yield?", "router": "unsupported", "guardrail": "advice", "source": "hard", "reviewed": true}
+{"id": "hard-019", "text": "Based on the funding rates, should I open a long position on BTC now?", "router": "unsupported", "guardrail": "advice", "source": "hard", "reviewed": true}
+{"id": "hard-020", "text": "Which DeFi token will give me the best return this month?", "router": "unsupported", "guardrail": "advice", "source": "hard", "reviewed": true}
+{"id": "hard-021", "text": "Write a short poem about Bitcoin hitting a new high.", "router": "unsupported", "guardrail": "off_topic", "source": "hard", "reviewed": true}
+{"id": "hard-022", "text": "Make up a funny name for my crypto trading group chat.", "router": "unsupported", "guardrail": "off_topic", "source": "hard", "reviewed": true}
+{"id": "hard-023", "text": "Write a product description for a Dogecoin t-shirt.", "router": "unsupported", "guardrail": "off_topic", "source": "hard", "reviewed": true}
+{"id": "hard-024", "text": "Translate 'buy the dip' into Japanese.", "router": "unsupported", "guardrail": "off_topic", "source": "hard", "reviewed": true}
+{"id": "hard-025", "text": "Tell me a joke about Ethereum gas fees.", "router": "unsupported", "guardrail": "off_topic", "source": "hard", "reviewed": true}
+{"id": "hard-026", "text": "Write a Python script that sends me an email every morning.", "router": "unsupported", "guardrail": "off_topic", "source": "hard", "reviewed": true}
+{"id": "hard-027", "text": "Summarise the plot of the movie The Big Short.", "router": "unsupported", "guardrail": "off_topic", "source": "hard", "reviewed": true}
+{"id": "hard-028", "text": "What is the current price of gold per ounce?", "router": "unsupported", "guardrail": "off_topic", "source": "hard", "reviewed": true}
+{"id": "hard-029", "text": "Draft a tweet announcing that our NFT collection launches on Friday.", "router": "unsupported", "guardrail": "off_topic", "source": "hard", "reviewed": true}
+{"id": "hard-030", "text": "How has the S&P 500 performed this year?", "router": "unsupported", "guardrail": "off_topic", "source": "hard", "reviewed": true}
