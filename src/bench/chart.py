@@ -266,33 +266,32 @@ def _cost(points: list[Point], note: str) -> Figure:
         note,
         arms,
     )
-    axes = figure.subplots()
-    _style(axes)
-    axes.set_xscale("log")
-    axes.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"${value:g}"))
-    axes.grid(False, axis="y")
-    labels: list[str] = []
-    for row, (node, arm) in enumerate((node, arm) for node in nodes for arm in arms):
-        # The node name is on the middle row of its group.
-        labels.append(_node_title(node).split(" (")[0] if arm == arms[len(arms) // 2] else "")
-        if arm == arms[0] and row:
-            axes.axhline(row - 0.5, color=AXIS, linewidth=1)
-        p = next((p for p in points if p.node == node and p.arm == arm), None)
-        if p is None or p.cost_per_1k is None:
-            axes.text(
-                0.01, row, f"{ARMS[arm].label}: no data", transform=axes.get_yaxis_transform(), va="center",
-                fontsize=FONT_SIZE - 1, color=TEXT_MUTED,
-            )  # fmt: skip
-            continue
-        _dot(axes, p.cost_per_1k, row, arm, f"${p.cost_per_1k:.3g}", RIGHT_OF_DOT, ha="left", va="center")
-    axes.set_yticks(range(len(labels)), labels)
-    axes.tick_params(axis="y", length=0, labelcolor=TEXT_PRIMARY)
-    axes.invert_yaxis()
-    low, high = axes.get_xlim()
-    axes.set_xlim(low, high * COST_RIGHT_ROOM)
-    axes.set_xlabel(
-        "USD per 1,000 decisions (log scale, further left is cheaper)", color=TEXT_SECONDARY, fontsize=FONT_SIZE
-    )
+    panels = figure.subplots(len(nodes), 1, sharex=True, squeeze=False)[:, 0]
+    figure.get_layout_engine().set(hspace=PANEL_GAP)  # pyright: ignore[reportOptionalMemberAccess, reportCallIssue]
+    for axes, node in zip(panels, nodes, strict=True):
+        _style(axes)
+        axes.set_xscale("log")
+        axes.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"${value:g}"))
+        # A shared axis shows its marks only on the lowest panel. Each panel shows them here.
+        axes.tick_params(labelbottom=True)
+        axes.grid(False, axis="y")
+        axes.set_title(_node_title(node).split(" (")[0], loc="left", fontsize=FONT_SIZE + 1, color=TEXT_PRIMARY)
+        for row, arm in enumerate(arms):
+            p = next((p for p in points if p.node == node and p.arm == arm), None)
+            if p is None or p.cost_per_1k is None:
+                axes.text(
+                    0.01, row, f"{ARMS[arm].label}: no data", transform=axes.get_yaxis_transform(), va="center",
+                    fontsize=FONT_SIZE - 1, color=TEXT_MUTED,
+                )  # fmt: skip
+                continue
+            _dot(axes, p.cost_per_1k, row, arm, f"${p.cost_per_1k:.3g}", RIGHT_OF_DOT, ha="left", va="center")
+        axes.set_yticks([])
+        axes.set_ylim(len(arms) - 0.5, -0.5)
+        axes.set_xlabel(
+            "USD per 1,000 decisions (log scale, further left is cheaper)", color=TEXT_SECONDARY, fontsize=FONT_SIZE
+        )
+    low, high = panels[0].get_xlim()
+    panels[0].set_xlim(low, high * COST_RIGHT_ROOM)
     return figure
 
 
