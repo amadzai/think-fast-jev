@@ -154,3 +154,18 @@ def test_arm_without_permutations_or_throughput_keeps_empty_scores() -> None:
 
     # Assert
     assert [(row.order_stable, row.order_spread, row.cost_per_1k) for row in rows] == [(None, None, None)]
+
+
+def test_router_reports_accuracy_without_advice_and_answers_at_each_confidence_level() -> None:
+    # Arrange: q2 is an advice question. Jev selects price with these top probabilities: q1 0.95 (right), q2 0.75
+    # (wrong), q3 0.5 (right).
+    records = [rec("jev", "q1", 1, 0.95, 200), rec("jev", "q2", 1, 0.75, 200), rec("jev", "q3", 1, 0.5, 200)]
+
+    # Act
+    [jev] = score_node("router", records, LABELS, PRICES, advice_items=frozenset({"q2"}))
+
+    # Assert
+    assert jev.accuracy == pytest.approx(2 / 3)
+    assert jev.accuracy_without_advice == 1.0
+    assert (jev.answered_at_90, jev.correct_at_90) == (1, 1)
+    assert (jev.answered_at_70, jev.correct_at_70) == (2, 1)

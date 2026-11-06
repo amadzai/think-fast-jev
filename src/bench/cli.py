@@ -393,7 +393,8 @@ def score(
         if node == COIN_SECTOR.name:
             rows = score_sectors(node, records, sector_labels, list(COIN_SECTOR.options), PRICES)
         else:
-            rows = score_node(node, records, labels[node], PRICES)
+            advice = frozenset(q.id for q in items if q.guardrail == "advice") if node == "router" else None
+            rows = score_node(node, records, labels[node], PRICES, advice)
         has_kev = any(r.node == node and r.arm == KEV_ARM for r in records)
         rows = with_order_scores(rows, permutations)
         return with_self_hosted_cost(rows, KEV_ARM, _decisions_per_hour(node, throughputs, has_kev))

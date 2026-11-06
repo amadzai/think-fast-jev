@@ -13,6 +13,9 @@ from bench.run import FIRST_REPEAT, Decision
 
 TOKENS_PER_PRICE_UNIT = 1_000_000
 DECISIONS_PER_COST_UNIT = 1_000
+# An arm answers an item at a confidence level when its top probability is this value or more.
+HIGH_CONFIDENCE = 0.9
+MEDIUM_CONFIDENCE = 0.7
 
 
 @dataclass(frozen=True)
@@ -25,6 +28,14 @@ class Score:
     items: int
     # Router and guardrail.
     accuracy: float | None = None
+    # Router: the accuracy on the items whose guardrail label is not `advice`.
+    accuracy_without_advice: float | None = None
+    # Router and guardrail, first repeat: the items with a top probability of 0.9 (or 0.7) or more, and how many of
+    # them the arm got right. The other items are passed on.
+    answered_at_90: int | None = None
+    correct_at_90: int | None = None
+    answered_at_70: int | None = None
+    correct_at_70: int | None = None
     # Coin sector: the mean F1 over the sectors, yes at 0.5.
     macro_f1: float | None = None
     # Brier score of the first repeat. 0 is perfect. Router and guardrail: multi-class, 2 is the worst.
@@ -60,21 +71,42 @@ class _Scored:
     records: dict[str, list[Decision]]
 
 
-def score_node(node: str, records: list[Decision], labels: dict[str, str], prices: dict[str, Price]) -> list[Score]:
-    """Return one row per arm. An arm with more than one repeat also gets a majority-vote row."""
+def score_node(
+    node: str,
+    records: list[Decision],
+    labels: dict[str, str],
+    prices: dict[str, Price],
+    advice_items: frozenset[str] | None = None,
+) -> list[Score]:
+    """Return one row per arm. An arm with more than one repeat also gets a majority-vote row.
+
+    With `advice_items`, the rows also have the accuracy on the other items.
+    """
     scored = _scored(node, records, labels.keys())
     rows = []
     for arm in scored.arms:
         groups = scored.groups[arm]
         firsts = [group[0] for group in groups]
+        right = {r.item_id: r.selected == labels[r.item_id] for r in firsts}
+        high, medium = (_confident(firsts, right, level) for level in (HIGH_CONFIDENCE, MEDIUM_CONFIDENCE))
+        row = _arm_score(
+            node,
+            arm,
+            scored,
+            prices,
+            accuracy=_mean(right.values()),
+            brier=_mean(_brier(r, frozenset({labels[r.item_id]})) for r in firsts),
+        )
         rows.append(
-            _arm_score(
-                node,
-                arm,
-                scored,
-                prices,
-                accuracy=_mean(r.selected == labels[r.item_id] for r in firsts),
-                brier=_mean(_brier(r, frozenset({labels[r.item_id]})) for r in firsts),
+            replace(
+                row,
+                accuracy_without_advice=_mean(ok for item, ok in right.items() if item not in advice_items)
+                if advice_items is not None
+                else None,
+                answered_at_90=high[0],
+                correct_at_90=high[1],
+                answered_at_70=medium[0],
+                correct_at_70=medium[1],
             )
         )
         if scored.repeats[arm] > 1:
@@ -219,6 +251,12 @@ def _arm_score(
         cost_per_1k=cost * DECISIONS_PER_COST_UNIT if cost is not None else None,
         error_rate=_mean(r.error is not None for r in records),
     )
+
+
+def _confident(firsts: list[Decision], right: dict[str, bool], level: float) -> tuple[int, int]:
+    """Return how many items have a top probability of `level` or more, and how many of them are right."""
+    answered = [r.item_id for r in firsts if r.probabilities and max(r.probabilities.values()) >= level]
+    return len(answered), sum(right[item] for item in answered)
 
 
 def _majority_row(
