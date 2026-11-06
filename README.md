@@ -122,6 +122,9 @@ its probabilities. The benchmark uses this shipped setting.
 - **Haiku** was the most expensive arm, and it missed the most advice questions on the router. Outside advice
   questions, it scored 97.5%.
 
+At the prompt sizes in this test, 1 million questions per day through the router and the guardrail would cost about
+$70 more per day with Luna than with Jev (about $26k per year). Longer prompts raise both costs.
+
 On quality alone, the candidates do not beat the best LLM in this test. **Jev** gives up a small amount of router
 accuracy for much lower latency and cost. Whether that trade is worth it depends on how much latency and cost matter in
 the application. The queries are not real traffic, and this is one run on one day.
