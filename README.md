@@ -30,14 +30,14 @@ the worst calibration. On the guardrail, all four arms scored 98.9% or more.
 
 | Decision node | Arm | `accuracy` | `brier` | `agreement` | `order_stable` | `order_spread` |
 |---|---|---|---|---|---|---|
-| Router | Jev | 0.93 | 0.104 | n/a | 0.96 | 0.037 |
+| Router | Jev | 0.93 | 0.104 | n/a | **0.96** | **0.037** |
 | Router | Kev-4B | 0.91 | 0.229 | n/a | 0.90 | 0.119 |
-| Router | Claude Haiku 5.5 | 0.89 | 0.196 | 0.98 | n/a | n/a |
-| Router | GPT-6 Luna | 0.98 | 0.054 | 0.98 | n/a | n/a |
-| Guardrail | Jev | 1.00 | 0.003 | n/a | 0.99 | 0.006 |
-| Guardrail | Kev-4B | 0.99 | 0.068 | n/a | 0.99 | 0.052 |
-| Guardrail | Claude Haiku 5.5 | 1.00 | 0.014 | 0.99 | n/a | n/a |
-| Guardrail | GPT-6 Luna | 0.99 | 0.011 | 0.99 | n/a | n/a |
+| Router | Claude Haiku 5.5 | 0.89 | 0.196 | **0.98** | n/a | n/a |
+| Router | GPT-6 Luna | **0.98** | **0.054** | **0.98** | n/a | n/a |
+| Guardrail | Jev | **1.00** | **0.003** | n/a | **0.99** | **0.006** |
+| Guardrail | Kev-4B | 0.99 | 0.068 | n/a | **0.99** | 0.052 |
+| Guardrail | Claude Haiku 5.5 | **1.00** | 0.014 | **0.99** | n/a | n/a |
+| Guardrail | GPT-6 Luna | 0.99 | 0.011 | **0.99** | n/a | n/a |
 
 ### Latency and cost
 
@@ -46,11 +46,11 @@ Latency is in ms and cost is in USD per 1,000 decisions. The error rate is 0 for
 | Decision node | Arm | `model_p50` | `model_p95` | `e2e_p50` | `e2e_p95` | `cost_per_1k` |
 |---|---|---|---|---|---|---|
 | Router | Jev | n/a | n/a | 277 | 407 | $0.030 |
-| Router | Kev-4B | 56 | 67 | 64 | 82 | $0.008 (estimate) |
+| Router | Kev-4B | **56** | **67** | **64** | **82** | **$0.008** (estimate) |
 | Router | Claude Haiku 5.5 | 1,091 | 1,585 | 1,378 | 1,860 | $0.175 |
 | Router | GPT-6 Luna | 1,277 | 3,360 | 1,612 | 3,650 | $0.086 |
 | Guardrail | Jev | n/a | n/a | 266 | 348 | $0.017 |
-| Guardrail | Kev-4B | 50 | 60 | 58 | 73 | $0.004 (estimate) |
+| Guardrail | Kev-4B | **50** | **60** | **58** | **73** | **$0.004** (estimate) |
 | Guardrail | Claude Haiku 5.5 | 882 | 1,560 | 1,156 | 1,842 | $0.058 |
 | Guardrail | GPT-6 Luna | 762 | 1,813 | 1,077 | 2,167 | $0.030 |
 
