@@ -18,13 +18,14 @@ class ArmStyle(NamedTuple):
     color: str
 
 
-# Arm name in scores.csv to its style. The 3 colors pass the colorblind checks for all pairs on the light surface. The
+# Arm name in scores.csv to its style. The 4 colors pass the colorblind checks for all pairs on the light surface. The
 # green has less than 3:1 contrast on the surface, so each dot has its value as a text label, and the README has the
 # table.
 ARMS = {
     "jev": ArmStyle("Jev (hosted)", "#2a78d6"),
     "kev": ArmStyle("Kev-4B (self-hosted)", "#eb6834"),
     "haiku": ArmStyle("Claude Haiku 5.5 (incumbent)", "#1baf7a"),
+    "luna": ArmStyle("GPT-6 Luna (incumbent)", "#c43b8f"),
 }
 SURFACE = "#fcfcfb"
 TEXT_PRIMARY = "#0b0b0b"
@@ -43,7 +44,9 @@ FOOTER_SIZE = 9
 LINE_SPACING = 1.5
 POINTS_PER_INCH = 72
 # Space above the plots for the title and the legend.
-HEADER_INCHES = 0.8
+HEADER_INCHES = 1.0
+# Two legend columns keep four arm labels inside the figure width.
+LEGEND_COLUMNS = 2
 # Latency axis ticks: 50 ms, 100 ms, 200 ms, 500 ms, 1 s and so on.
 LATENCY_TICKS = (1.0, 2.0, 5.0)
 # The quality axis ends a little above 1, so that a dot at 1 is not cut.
@@ -172,7 +175,7 @@ def _legend(figure: Figure, arms: list[str], top: float) -> None:
         for arm in arms
     ]
     figure.legend(
-        handles=handles, loc="lower left", bbox_to_anchor=(0.01, top), ncols=len(handles), frameon=False,
+        handles=handles, loc="lower left", bbox_to_anchor=(0.01, top), ncols=LEGEND_COLUMNS, frameon=False,
         fontsize=FONT_SIZE, labelcolor=TEXT_PRIMARY, handletextpad=0.2, borderaxespad=0,
     )  # fmt: skip
 
@@ -236,8 +239,8 @@ def _cost(points: list[Point], note: str) -> Figure:
         FIGURE_WIDTH,
         COST_ROW_HEIGHT * len(nodes) * len(arms) + COST_EXTRA_HEIGHT,
         "Cost per 1,000 decisions (USD)",
-        "Cost axis is logarithmic. Jev and Haiku: list price per token. Kev-4B: AWS g6.xlarge (1 x L4) on-demand price\n"
-        "per hour, divided by the measured decisions per hour.",
+        "Cost axis is logarithmic. Jev, Haiku and Luna: list price per token.\n"
+        "Kev-4B: AWS g6.xlarge (1 x L4) on-demand price per hour, divided by the measured decisions per hour.",
         note,
         arms,
     )
