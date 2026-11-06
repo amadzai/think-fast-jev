@@ -50,8 +50,8 @@ POINTS_PER_INCH = 72
 HEADER_INCHES = 1.0
 # Two legend columns keep four arm labels inside the figure width.
 LEGEND_COLUMNS = 2
-# Latency axis ticks: 50 ms, 100 ms, 200 ms, 500 ms, 1 s and so on.
-LATENCY_TICKS = (1.0, 2.0, 5.0)
+# Log axis ticks at 1, 2 and 5 of each power of 10: 50 ms, 100 ms, 200 ms, or $0.01, $0.02, $0.05.
+LOG_TICKS = (1.0, 2.0, 5.0)
 # The quality axis ends a little above 1, so that a dot at 1 is not cut.
 QUALITY_TOP = 1.03
 # The step between the marks on the quality axis.
@@ -215,7 +215,7 @@ def _quality_latency(points: list[Point], note: str) -> Figure:
     for axes, node in zip(panels, nodes, strict=True):
         _style(axes)
         axes.set_xscale("log")
-        axes.xaxis.set_major_locator(LogLocator(subs=LATENCY_TICKS))
+        axes.xaxis.set_major_locator(LogLocator(subs=LOG_TICKS))
         axes.xaxis.set_major_formatter(FuncFormatter(_milliseconds))
         axes.xaxis.set_minor_formatter(NullFormatter())
         # A shared axis shows its marks only on the lowest panel. Each panel shows them here.
@@ -273,7 +273,9 @@ def _cost(points: list[Point], note: str) -> Figure:
     for axes, node in zip(panels, nodes, strict=True):
         _style(axes)
         axes.set_xscale("log")
+        axes.xaxis.set_major_locator(LogLocator(subs=LOG_TICKS))
         axes.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"${value:g}"))
+        axes.xaxis.set_minor_formatter(NullFormatter())
         # A shared axis shows its marks only on the lowest panel. Each panel shows them here.
         axes.tick_params(labelbottom=True)
         axes.grid(False, axis="y")
