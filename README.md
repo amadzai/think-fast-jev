@@ -2,7 +2,7 @@
 
 # think-fast-jev
 
-**Models built to decide vs a model built to talk.**
+**Models built to decide vs a model built to talk**
 
 [Headline](#headline) • [Results](#results) • [Dataset](#dataset) • [Method](#method) • [Limitations](#limitations) • [Reproduce](#reproduce)
 
